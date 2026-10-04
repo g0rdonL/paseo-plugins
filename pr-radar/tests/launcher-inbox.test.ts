@@ -3,12 +3,12 @@ import { readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
-import { mergeChanges } from "../server/viewer-scope";
 import {
   buildLauncherInbox,
   clearLauncherInbox,
   publishLauncherInbox,
 } from "../server/launcher-inbox";
+import { mergeChanges } from "../server/viewer-scope";
 import type { GitHubInboxItem } from "../shared/viewer-scope";
 
 function item(id: string, changes: string[], updatedAt = "2026-10-04T00:00:00Z"): GitHubInboxItem {
@@ -95,11 +95,10 @@ describe("mergeChanges", () => {
 
   test("drops a field that ended where it started", () => {
     expect(
-      mergeChanges(["Checks: success → pending", "Merge state: CLEAN → UNSTABLE"], [
-        "Checks: pending → success",
-        "Merge state: UNSTABLE → CLEAN",
-        "New activity",
-      ]),
+      mergeChanges(
+        ["Checks: success → pending", "Merge state: CLEAN → UNSTABLE"],
+        ["Checks: pending → success", "Merge state: UNSTABLE → CLEAN", "New activity"],
+      ),
     ).toEqual(["New activity"]);
   });
 
