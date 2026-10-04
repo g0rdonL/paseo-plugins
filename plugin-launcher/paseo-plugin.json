@@ -1,0 +1,5 @@
+{
+  "id": "plugin-launcher",
+  "description": "A single Plugins sidebar row that lists every installed plugin and opens its sidebar screen.",
+  "requirements": { "paseo": ">=0.10.3 <0.11.0" }
+}

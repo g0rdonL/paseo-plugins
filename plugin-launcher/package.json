@@ -1,0 +1,57 @@
+{
+  "name": "@g0rdonl/paseo-plugin-launcher",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "One sidebar row that lists every installed Paseo plugin and navigates to its sidebar screen.",
+  "license": "MIT",
+  "author": "Gordon Lee <gordon.lee@g0rdonL>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/g0rdonL/paseo-plugins.git",
+    "directory": "plugin-launcher"
+  },
+  "bugs": {
+    "url": "https://github.com/g0rdonL/paseo-plugins/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "bun@1.4.2",
+  "engines": {
+    "node": ">=24"
+  },
+  "keywords": [
+    "paseo",
+    "paseo-plugin",
+    "plugin-launcher"
+  ],
+  "files": [
+    "index.client.tsx",
+    "index.server.ts",
+    "client",
+    "server",
+    "shared",
+    "paseo-plugin.json",
+    "LICENSE"
+  ],
+  "scripts": {
+    "check": "biome check .",
+    "check:write": "biome check --write .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@getpaseo/client": "0.10.3",
+    "@getpaseo/plugin": "0.10.3",
+    "@getpaseo/protocol": "0.10.3",
+    "@tanstack/react-query": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "react": "catalog:",
+    "react-native": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "zod": "catalog:"
+  }
+}
