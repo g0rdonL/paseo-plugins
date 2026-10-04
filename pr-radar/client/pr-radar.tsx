@@ -67,6 +67,9 @@ function agentState(row: RadarRow): string {
   return `${agent.title} · ${agent.status}${extra}`;
 }
 
+// Below this width (px) the radar uses its compact card layout: actions under the text.
+const NARROW_PANE_WIDTH = 640;
+
 export function PrRadar({
   theme,
   layout,
@@ -77,6 +80,10 @@ export function PrRadar({
   const queryClient = useQueryClient();
   const acknowledgeUpdates = useRpc(acknowledgeViewerScope);
   const parsed = parseRadarParams(params);
+  // layout.compact follows the window, so a narrow pane (e.g. the right-hand Explorer) in a
+  // wide window still got the wide card. Measure the radar's own width as well.
+  const [paneWidth, setPaneWidth] = useState(0);
+  const compact = layout.compact || (paneWidth > 0 && paneWidth < NARROW_PANE_WIDTH);
   const [filter, setFilterState] = useState<RadarFilter | null>(parsed.filter);
   const [focusedPr, setFocusedPr] = useState<string | null>(parsed.pr);
   // Chips are local state: openScreen would push a new screen per tap. A chip press also ends PR focus.
@@ -317,7 +324,7 @@ export function PrRadar({
   const sortedRows = useMemo(() => sortRows(visibleRows, sortKey), [visibleRows, sortKey]);
 
   const styles = useMemo(() => {
-    const gutter = layout.compact ? 14 : 24;
+    const gutter = compact ? 14 : 24;
     const mutedBorder = `${theme.colors.foregroundMuted}35`;
     return {
       screen: { flex: 1, backgroundColor: theme.colors.surface0 },
@@ -329,7 +336,7 @@ export function PrRadar({
       },
       header: {
         paddingHorizontal: gutter,
-        paddingTop: layout.compact ? 18 : 28,
+        paddingTop: compact ? 18 : 28,
         paddingBottom: 18,
         gap: 14,
       },
@@ -354,7 +361,7 @@ export function PrRadar({
       },
       heroDetail: { color: theme.colors.foregroundMuted, fontSize: 13, lineHeight: 18 },
       summary: {
-        flexDirection: layout.compact ? ("column" as const) : ("row" as const),
+        flexDirection: compact ? ("column" as const) : ("row" as const),
         gap: 1,
         borderWidth: 1,
         borderColor: theme.colors.border,
@@ -364,17 +371,17 @@ export function PrRadar({
       },
       metric: {
         flex: 1,
-        paddingHorizontal: layout.compact ? 13 : 16,
-        paddingVertical: layout.compact ? 10 : 14,
+        paddingHorizontal: compact ? 13 : 16,
+        paddingVertical: compact ? 10 : 14,
         backgroundColor: theme.colors.surface1,
-        flexDirection: layout.compact ? ("row" as const) : ("column" as const),
-        alignItems: layout.compact ? ("center" as const) : ("flex-start" as const),
+        flexDirection: compact ? ("row" as const) : ("column" as const),
+        alignItems: compact ? ("center" as const) : ("flex-start" as const),
         justifyContent: "space-between" as const,
         gap: 3,
       },
       metricValue: {
         color: theme.colors.foreground,
-        fontSize: layout.compact ? 22 : 30,
+        fontSize: compact ? 22 : 30,
         fontWeight: "800" as const,
       },
       metricLabel: {
@@ -470,7 +477,7 @@ export function PrRadar({
         marginHorizontal: gutter,
         borderTopWidth: 1,
         borderTopColor: theme.colors.border,
-        minHeight: layout.compact ? 152 : 122,
+        minHeight: compact ? 152 : 122,
       },
       rail: { width: 3, marginVertical: 14, borderRadius: 2 },
       rowBody: {
@@ -523,7 +530,7 @@ export function PrRadar({
       },
       title: {
         color: theme.colors.foreground,
-        fontSize: layout.compact ? 15 : 16,
+        fontSize: compact ? 15 : 16,
         fontWeight: "700" as const,
         lineHeight: 21,
       },
@@ -535,8 +542,8 @@ export function PrRadar({
         flexDirection: "row" as const,
         alignItems: "center" as const,
         gap: 8,
-        paddingLeft: layout.compact ? 0 : 12,
-        paddingTop: layout.compact ? 4 : 0,
+        paddingLeft: compact ? 0 : 12,
+        paddingTop: compact ? 4 : 0,
       },
       action: {
         minHeight: 34,
@@ -587,7 +594,7 @@ export function PrRadar({
       notice: { color: theme.colors.statusSuccess, fontSize: 13, lineHeight: 18 },
       spinner: { marginVertical: 52 },
     };
-  }, [layout.compact, theme]);
+  }, [compact, theme]);
 
   const openPr = useCallback(async (row: RadarRow) => {
     setOpenError(null);
@@ -784,9 +791,9 @@ export function PrRadar({
               Updated · {item.changes.join(" · ")}
             </Text>
           ) : null}
-          {layout.compact ? actions : null}
+          {compact ? actions : null}
         </View>
-        {layout.compact ? null : actions}
+        {compact ? null : actions}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Copy link to pull request ${item.repository} ${item.number ?? ""}`}
@@ -1025,7 +1032,7 @@ export function PrRadar({
   );
 
   return (
-    <View style={styles.screen}>
+    <View style={styles.screen} onLayout={(event) => setPaneWidth(event.nativeEvent.layout.width)}>
       <FlatList
         contentContainerStyle={styles.content}
         data={sortedRows}
