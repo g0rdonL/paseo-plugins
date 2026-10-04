@@ -10,6 +10,7 @@ import {
   classifyRow,
   formatAge,
   hasActiveAgent,
+  isMergeable,
   matchesRow,
   mergeInboxRows,
   openPullRequestUrl,
@@ -17,6 +18,7 @@ import {
   type PaseoWorkspace,
   type RadarAgent,
   type RadarRow,
+  sortRows,
 } from "../client/radar";
 import {
   needsYouSummary,
@@ -80,6 +82,68 @@ function row(overrides: Partial<RadarRow> = {}): RadarRow {
     ...overrides,
   };
 }
+
+describe("sorting", () => {
+  const rows = [
+    row({ id: "red-new", bucket: "needs-you", activityAt: "2026-08-30T12:00:00.000Z", repository: "z/one" }),
+    row({ id: "ready-old", bucket: "ready", activityAt: "2026-08-01T00:00:00.000Z", repository: "a/two" }),
+    row({ id: "ready-new", bucket: "ready", activityAt: "2026-08-29T00:00:00.000Z", repository: "m/three" }),
+    row({
+      id: "ready-theirs",
+      bucket: "ready",
+      ownership: "external",
+      activityAt: "2026-08-30T13:00:00.000Z",
+      repository: "b/four",
+    }),
+    row({ id: "waiting", bucket: "waiting", activityAt: "2026-08-15T00:00:00.000Z", repository: "a/two", number: 7 }),
+  ];
+  const ids = (sorted: RadarRow[]) => sorted.map((r) => r.id);
+
+  test("mergeable first: rows with a Merge button lead, newest first, then by bucket", () => {
+    expect(ids(sortRows(rows, "mergeable"))).toEqual([
+      "ready-new",
+      "ready-old",
+      "red-new",
+      "ready-theirs",
+      "waiting",
+    ]);
+  });
+
+  test("mergeable means mine, ready, not a draft", () => {
+    expect(isMergeable(row({ bucket: "ready" }))).toBe(true);
+    expect(isMergeable(row({ bucket: "ready", ownership: "external" }))).toBe(false);
+    expect(isMergeable(row({ bucket: "ready", isDraft: true }))).toBe(false);
+    expect(isMergeable(row({ bucket: "needs-you" }))).toBe(false);
+  });
+
+  test("needs attention first keeps bucket order, newest first within", () => {
+    expect(ids(sortRows(rows, "attention"))).toEqual([
+      "red-new",
+      "ready-theirs",
+      "ready-new",
+      "ready-old",
+      "waiting",
+    ]);
+  });
+
+  test("recent, oldest, and repository orders", () => {
+    expect(ids(sortRows(rows, "recent"))[0]).toBe("ready-theirs");
+    expect(ids(sortRows(rows, "oldest"))[0]).toBe("ready-old");
+    expect(ids(sortRows(rows, "repository"))).toEqual([
+      "waiting",
+      "ready-old",
+      "ready-theirs",
+      "ready-new",
+      "red-new",
+    ]);
+  });
+
+  test("does not mutate its input", () => {
+    const copy = [...rows];
+    sortRows(rows, "recent");
+    expect(rows).toEqual(copy);
+  });
+});
 
 describe("sidebar queue and screen state", () => {
   test("counts classified needs-you rows, without including ready PRs", () => {

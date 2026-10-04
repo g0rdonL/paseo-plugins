@@ -565,6 +565,55 @@ export function applyViewerScope(
   return result;
 }
 
+/** Rows the viewer can merge right now: the same test that shows the Merge button. */
+export function isMergeable(row: RadarRow): boolean {
+  return row.ownership === "mine" && row.bucket === "ready" && !row.isDraft && row.number !== null;
+}
+
+export const SORT_KEYS = ["mergeable", "attention", "recent", "oldest", "repository"] as const;
+export type SortKey = (typeof SORT_KEYS)[number];
+
+export const SORT_TITLES: Record<SortKey, string> = {
+  mergeable: "Mergeable first",
+  attention: "Needs attention first",
+  recent: "Recently updated",
+  oldest: "Oldest first",
+  repository: "Repository",
+};
+
+const activityOf = (row: RadarRow) => Date.parse(row.activityAt ?? "") || 0;
+const newestFirst = (left: RadarRow, right: RadarRow) =>
+  activityOf(right) - activityOf(left) || left.title.localeCompare(right.title);
+
+/** Orders rows for display. Returns a new array; the input order is the bucket order. */
+export function sortRows(rows: readonly RadarRow[], key: SortKey): RadarRow[] {
+  const sorted = [...rows];
+  switch (key) {
+    case "mergeable":
+      return sorted.sort(
+        (left, right) =>
+          Number(isMergeable(right)) - Number(isMergeable(left)) ||
+          BUCKET_ORDER[left.bucket] - BUCKET_ORDER[right.bucket] ||
+          newestFirst(left, right),
+      );
+    case "attention":
+      return sorted.sort(
+        (left, right) =>
+          BUCKET_ORDER[left.bucket] - BUCKET_ORDER[right.bucket] || newestFirst(left, right),
+      );
+    case "recent":
+      return sorted.sort(newestFirst);
+    case "oldest":
+      return sorted.sort((left, right) => newestFirst(right, left));
+    case "repository":
+      return sorted.sort(
+        (left, right) =>
+          left.repository.localeCompare(right.repository) ||
+          (left.number ?? 0) - (right.number ?? 0),
+      );
+  }
+}
+
 export function matchesRow(row: RadarRow, needle: string): boolean {
   const query = needle.trim().toLowerCase();
   if (!query) return true;
