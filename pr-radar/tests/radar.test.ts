@@ -755,6 +755,8 @@ describe("viewer scope", () => {
     const scoped = applyViewerScope([mine, review], {
       authoredUrls: [mine.url],
       reviewRequestedUrls: [review.url],
+      assigneeUrls: [],
+      mentionedUrls: [],
       error: null,
       inboxItems: [],
     });
@@ -766,6 +768,54 @@ describe("viewer scope", () => {
       bucket: "needs-you",
       reason: "Review requested",
     });
+  });
+
+  test("treats assignee URLs as mine and mention URLs as external", () => {
+    const assigned = row({
+      id: "team/thing#11",
+      url: "https://github.com/team/thing/pull/11",
+      ownership: "unknown",
+      reviewDecision: null,
+    });
+    const mentioned = row({
+      id: "team/other#12",
+      url: "https://github.com/team/other/pull/12",
+      ownership: "unknown",
+      reviewDecision: null,
+    });
+    const scoped = applyViewerScope([assigned, mentioned], {
+      authoredUrls: [],
+      reviewRequestedUrls: [],
+      assigneeUrls: [assigned.url],
+      mentionedUrls: [mentioned.url],
+      error: null,
+      inboxItems: [],
+    });
+
+    expect(scoped.find((item) => item.id === assigned.id)?.ownership).toBe("mine");
+    expect(scoped.find((item) => item.id === mentioned.id)).toMatchObject({
+      ownership: "external",
+      reviewRequestedFromMe: false,
+    });
+  });
+
+  test("author wins over assignee when both URL lists overlap", () => {
+    const shared = row({
+      id: "shared#13",
+      url: "https://github.com/shared/thing/pull/13",
+      ownership: "unknown",
+    });
+    const scoped = applyViewerScope([shared], {
+      authoredUrls: [shared.url],
+      reviewRequestedUrls: [],
+      assigneeUrls: [shared.url],
+      mentionedUrls: [shared.url],
+      error: null,
+      inboxItems: [],
+    });
+
+    expect(scoped[0]?.ownership).toBe("mine");
+    expect(scoped[0]?.reviewRequestedFromMe).toBe(false);
   });
 });
 

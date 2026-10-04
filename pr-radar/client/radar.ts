@@ -99,6 +99,8 @@ export interface RadarSnapshot {
 export interface ViewerScopeData {
   authoredUrls: readonly string[];
   reviewRequestedUrls: readonly string[];
+  assigneeUrls: readonly string[];
+  mentionedUrls: readonly string[];
   error: string | null;
   inboxItems: readonly GitHubInboxItem[];
 }
@@ -470,7 +472,7 @@ export function mergeInboxRows(
       existing.mergeStateStatus = item.mergeStateStatus;
       existing.checksStatus = item.checksStatus;
       existing.reviewDecision = item.reviewDecision;
-      existing.ownership = item.role === "author" ? "mine" : "external";
+      existing.ownership = item.role === "author" || item.role === "assignee" ? "mine" : "external";
       existing.reviewRequestedFromMe = item.role === "reviewer";
       existing.localProjectRoot ??= snapshot.repositoryRoots[item.repository.toLowerCase()] ?? null;
       if (Date.parse(item.updatedAt) > Date.parse(existing.activityAt ?? "")) {
@@ -506,7 +508,7 @@ export function mergeInboxRows(
       workspaceNames: [],
       localProjectRoot: snapshot.repositoryRoots[item.repository.toLowerCase()] ?? null,
       agents: [],
-      ownership: item.role === "author" ? "mine" : "external",
+      ownership: item.role === "author" || item.role === "assignee" ? "mine" : "external",
       reviewRequestedFromMe: item.role === "reviewer",
       bucket: "waiting",
       reason: "Waiting on repository status",
@@ -533,16 +535,29 @@ export function applyViewerScope(
   scope: ViewerScopeData | null,
 ): RadarRow[] {
   const authored = new Set(scope?.error ? [] : scope?.authoredUrls.map((url) => url.toLowerCase()));
+  const assigned = new Set(scope?.error ? [] : scope?.assigneeUrls.map((url) => url.toLowerCase()));
   const reviewRequested = new Set(
     scope?.error ? [] : scope?.reviewRequestedUrls.map((url) => url.toLowerCase()),
+  );
+  const mentioned = new Set(
+    scope?.error ? [] : scope?.mentionedUrls.map((url) => url.toLowerCase()),
   );
   const ownershipAvailable = scope !== null && scope.error === null;
   const result = rows.map((row) => {
     const url = row.url.toLowerCase();
+    const isMine = authored.has(url) || assigned.has(url);
+    const isReviewer = reviewRequested.has(url);
+    const isMentioned = mentioned.has(url) && !isReviewer && !isMine;
     const updated: RadarRow = {
       ...row,
-      ownership: ownershipAvailable ? (authored.has(url) ? "mine" : "external") : "unknown",
-      reviewRequestedFromMe: ownershipAvailable && reviewRequested.has(url),
+      ownership: ownershipAvailable
+        ? isMine
+          ? "mine"
+          : isReviewer || isMentioned
+            ? "external"
+            : "external"
+        : "unknown",
+      reviewRequestedFromMe: ownershipAvailable && isReviewer,
     };
     const classification = classifyRow(updated);
     updated.bucket = classification.bucket;

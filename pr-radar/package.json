@@ -1,18 +1,18 @@
 {
-  "name": "@omercnet/paseo-pr-radar",
-  "version": "1.2.0",
+  "name": "@g0rdonl/paseo-pr-radar",
+  "version": "1.3.0-fork.1",
   "type": "module",
-  "description": "A viewer-aware delivery queue for pull requests linked to Paseo workspaces.",
+  "description": "Fork of @omercnet/paseo-pr-radar that also surfaces PRs where the viewer is assignee or mention, so private-repo activity in orgs surfaces alongside authored/reviewer rows.",
   "license": "MIT",
-  "author": "Omer Cohen",
+  "author": "Gordon Lee <gordon.lee@g0rdonL>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/omercnet/paseo-plugins.git",
+    "url": "git+https://github.com/g0rdonL/paseo-plugins.git",
     "directory": "pr-radar"
   },
-  "homepage": "https://github.com/omercnet/paseo-plugins/tree/main/pr-radar#readme",
+  "homepage": "https://github.com/g0rdonL/paseo-plugins/tree/fork/pr-radar-mention-assignee/pr-radar#readme",
   "bugs": {
-    "url": "https://github.com/omercnet/paseo-plugins/issues"
+    "url": "https://github.com/g0rdonL/paseo-plugins/issues"
   },
   "publishConfig": {
     "access": "public"

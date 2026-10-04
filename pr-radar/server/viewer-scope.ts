@@ -53,7 +53,7 @@ interface StoredWindow {
 }
 
 interface StoredState {
-  version: 2;
+  version: 3;
   windows: Record<string, StoredWindow>;
 }
 
@@ -89,7 +89,7 @@ async function viewerLogin(): Promise<string> {
 }
 
 async function searchPullRequests(
-  filter: "author" | "review-requested",
+  filter: "author" | "review-requested" | "assignee" | "mentions",
   viewer: string,
   since: string,
 ): Promise<SearchRecord[]> {
@@ -121,7 +121,9 @@ async function searchPullRequests(
   return JSON.parse(output) as SearchRecord[];
 }
 
-async function searchScopeUrls(filter: "author" | "review-requested"): Promise<string[]> {
+async function searchScopeUrls(
+  filter: "author" | "review-requested" | "assignee" | "mentions",
+): Promise<string[]> {
   const output = await runGh([
     "search",
     "prs",
@@ -217,7 +219,7 @@ function reviewDecision(state: Enrichment | undefined): GitHubInboxItem["reviewD
 
 function toInboxItem(
   record: SearchRecord,
-  role: GitHubInboxItem["role"],
+  role: "author" | "reviewer" | "assignee" | "mention",
   state: Enrichment | undefined,
 ): GitHubInboxItem {
   const labels = record.labels.map(({ name }) => name);
@@ -255,13 +257,13 @@ function toInboxItem(
 async function readState(): Promise<StoredState> {
   try {
     const state = JSON.parse(await readFile(statePath, "utf8")) as StoredState;
-    if (state.version === 2 && state.windows && typeof state.windows === "object") return state;
+    if (state.version === 3 && state.windows && typeof state.windows === "object") return state;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
       console.error("PR Radar ignored unreadable inbox state", error);
     }
   }
-  return { version: 2, windows: {} };
+  return { version: 3, windows: {} };
 }
 
 async function writeState(state: StoredState): Promise<void> {
@@ -311,16 +313,32 @@ export async function resolveViewerScope({
     const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1_000)
       .toISOString()
       .slice(0, 10);
-    const [authored, reviewRequested, authoredScope, reviewRequestedScope, stored] =
-      await Promise.all([
-        searchPullRequests("author", viewer, since),
-        searchPullRequests("review-requested", viewer, since),
-        searchScopeUrls("author"),
-        searchScopeUrls("review-requested"),
-        readState(),
-      ]);
+    const [
+      authored,
+      reviewRequested,
+      assigned,
+      mentioned,
+      authoredScope,
+      reviewRequestedScope,
+      assignedScope,
+      mentionedScope,
+      stored,
+    ] = await Promise.all([
+      searchPullRequests("author", viewer, since),
+      searchPullRequests("review-requested", viewer, since),
+      searchPullRequests("assignee", viewer, since),
+      searchPullRequests("mentions", viewer, since),
+      searchScopeUrls("author"),
+      searchScopeUrls("review-requested"),
+      searchScopeUrls("assignee"),
+      searchScopeUrls("mentions"),
+      readState(),
+    ]);
+    // Merge priority: author > assignee > reviewer > mention (most "owning" role wins on overlap).
     const records = new Map<string, { record: SearchRecord; role: GitHubInboxItem["role"] }>();
+    for (const record of mentioned) records.set(record.id, { record, role: "mention" });
     for (const record of reviewRequested) records.set(record.id, { record, role: "reviewer" });
+    for (const record of assigned) records.set(record.id, { record, role: "assignee" });
     for (const record of authored) records.set(record.id, { record, role: "author" });
     const enrichment = await enrich([...records.keys()]);
     const inboxItems = [...records.values()].map(({ record, role }) =>
@@ -356,16 +374,30 @@ export async function resolveViewerScope({
       ...reviewRequested.map(({ url }) => url),
       ...reviewRequestedScope.filter((url) => requestedUrls.has(url.toLowerCase())),
     ]);
+    const assigneeUrls = new Set([
+      ...assigned.map(({ url }) => url),
+      ...assignedScope.filter((url) => requestedUrls.has(url.toLowerCase())),
+    ]);
+    const mentionedUrls = new Set([
+      ...mentioned.map(({ url }) => url),
+      ...mentionedScope.filter((url) => requestedUrls.has(url.toLowerCase())),
+    ]);
     const coverageNote =
       enrichment.failures > 0
         ? `${enrichment.failures} GitHub detail request${enrichment.failures === 1 ? "" : "s"} failed; affected PRs use conservative states.`
-        : `Open PRs visible to the GitHub CLI. Organization SSO restrictions may omit results.`;
+        : `Open PRs where you are author, assignee, reviewer, or mentioned. Organization SSO restrictions may omit results.`;
     return {
       viewer,
       authoredUrls: [...authoredUrls],
       reviewRequestedUrls: [...reviewRequestedUrls],
+      assigneeUrls: [...assigneeUrls],
+      mentionedUrls: [...mentionedUrls],
       inboxItems,
-      truncated: authored.length === SEARCH_LIMIT || reviewRequested.length === SEARCH_LIMIT,
+      truncated:
+        authored.length === SEARCH_LIMIT ||
+        reviewRequested.length === SEARCH_LIMIT ||
+        assigned.length === SEARCH_LIMIT ||
+        mentioned.length === SEARCH_LIMIT,
       coverageNote,
       updates: inboxItems.filter(({ changes }) => changes.length > 0).length,
       acknowledgedAt: previous.acknowledgedAt,
@@ -377,6 +409,8 @@ export async function resolveViewerScope({
       viewer: null,
       authoredUrls: [],
       reviewRequestedUrls: [],
+      assigneeUrls: [],
+      mentionedUrls: [],
       inboxItems: [],
       truncated: false,
       coverageNote: "GitHub inbox data is unavailable.",

@@ -23,14 +23,14 @@ export const GitHubInboxItemSchema = z.object({
   mergeStateStatus: z.string().nullable(),
   checksStatus: z.enum(["success", "pending", "none", "failure"]),
   reviewDecision: z.enum(["pending", "approved", "changes_requested"]).nullable(),
-  role: z.enum(["author", "reviewer"]),
+  role: z.enum(["author", "reviewer", "assignee", "mention"]),
   changes: z.array(z.string()),
 });
 
 export type GitHubInboxItem = z.infer<typeof GitHubInboxItemSchema>;
 
 export const viewerScope = defineRpc({
-  name: "pr-radar.viewer-scope",
+  name: "pr-radar-private.viewer-scope",
   input: z.object({
     urls: z.array(HttpsUrlSchema).max(200),
     windowDays: z.number().int().min(1).max(365).default(30),
@@ -39,6 +39,8 @@ export const viewerScope = defineRpc({
     viewer: z.string().nullable(),
     authoredUrls: z.array(HttpsUrlSchema),
     reviewRequestedUrls: z.array(HttpsUrlSchema),
+    assigneeUrls: z.array(HttpsUrlSchema),
+    mentionedUrls: z.array(HttpsUrlSchema),
     inboxItems: z.array(GitHubInboxItemSchema),
     truncated: z.boolean(),
     coverageNote: z.string(),
@@ -49,7 +51,7 @@ export const viewerScope = defineRpc({
 });
 
 export const acknowledgeViewerScope = defineRpc({
-  name: "pr-radar.acknowledge-updates",
+  name: "pr-radar-private.acknowledge-updates",
   input: z.object({ windowDays: z.number().int().min(1).max(365) }),
   output: z.object({ acknowledgedAt: z.string() }),
 });
