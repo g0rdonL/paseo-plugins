@@ -536,3 +536,17 @@ export async function acknowledgeViewerUpdates({
   await writeState(state);
   return { acknowledgedAt };
 }
+
+export async function runGhPublic(args: string[], timeout?: number): Promise<string> {
+  return runGh(args, timeout);
+}
+
+export function viewerLoginPublic(): Promise<string> {
+  return viewerLogin();
+}
+
+export async function invalidateInboxState(): Promise<void> {
+  // Force the next resolveViewerScope to re-detect by clearing stored state.
+  // Used after merge/ready actions so the radar reflects the new PR status.
+  await writeState({ version: 3, windows: {} });
+}

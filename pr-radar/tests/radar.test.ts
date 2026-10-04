@@ -24,6 +24,13 @@ import {
   radarWarnings,
   supportsRadarScreen,
 } from "../client/screen-state";
+import {
+  gatesSatisfied,
+  parsePullRequestUrl,
+  resolveMergeMethod,
+  rollupState,
+  type PullRequestView,
+} from "../server/merge";
 import { type GitHubInboxItem, GitHubInboxItemSchema } from "../shared/viewer-scope";
 
 function agent(overrides: Partial<RadarAgent> = {}): RadarAgent {
@@ -1043,5 +1050,149 @@ describe("display helpers", () => {
     expect(formatAge(new Date(now - 30 * 60_000).toISOString(), now)).toBe("30m");
     expect(formatAge(new Date(now - 90 * 60_000).toISOString(), now)).toBe("1h");
     expect(formatAge(new Date(now - 48 * 60 * 60_000).toISOString(), now)).toBe("2d");
+  });
+});
+
+describe("merge gates", () => {
+  function pr(overrides: Partial<PullRequestView> = {}): PullRequestView {
+    return {
+      state: "OPEN",
+      isDraft: false,
+      mergeable: "MERGEABLE",
+      mergeStateStatus: "CLEAN",
+      reviewDecision: "APPROVED",
+      statusCheckRollup: [{ __typename: "CheckRun", status: "COMPLETED", conclusion: "SUCCESS" }],
+      mergeCommitAllowed: true,
+      squashCommitAllowed: true,
+      rebaseCommitAllowed: false,
+      mergeCommit: { oid: "abc123" },
+      author: { login: "g0rdonL" },
+      assignees: [],
+      number: 1,
+      url: "https://github.com/g0rdonL/private/pull/1",
+      ...overrides,
+    };
+  }
+
+  test("parses GitHub pull request URLs into owner/repo/number", () => {
+    expect(parsePullRequestUrl("https://github.com/g0rdonL/private/pull/42")).toEqual({
+      owner: "g0rdonL",
+      repo: "private",
+      number: 42,
+    });
+    expect(parsePullRequestUrl("http://github.com/g0rdonL/private/pull/42")).toBeNull();
+    expect(parsePullRequestUrl("https://github.com/g0rdonL/private/issues/42")).toBeNull();
+    expect(parsePullRequestUrl("https://github.com/g0rdonL/private/pull/abc")).toBeNull();
+    expect(parsePullRequestUrl("https://example.com/g0rdonL/private/pull/1")).toBeNull();
+  });
+
+  test("passes gates for an open, approved, mergeable PR authored by viewer", () => {
+    const result = gatesSatisfied(pr(), "g0rdonL");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.allowedMethod).toBe("squash");
+  });
+
+  test("passes gates for an open, approved, mergeable PR assigned to viewer", () => {
+    const result = gatesSatisfied(pr({ author: { login: "tom" }, assignees: [{ login: "g0rdonL" }] }), "g0rdonL");
+    expect(result.ok).toBe(true);
+  });
+
+  test("rejects merged or closed pull requests", () => {
+    expect(gatesSatisfied(pr({ state: "MERGED" }), "g0rdonL").ok).toBe(false);
+    expect(gatesSatisfied(pr({ state: "CLOSED" }), "g0rdonL").ok).toBe(false);
+  });
+
+  test("rejects drafts", () => {
+    const result = gatesSatisfied(pr({ isDraft: true }), "g0rdonL");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/draft/i);
+  });
+
+  test("rejects unmergeable pull requests", () => {
+    expect(gatesSatisfied(pr({ mergeable: "CONFLICTING" }), "g0rdonL").ok).toBe(false);
+    expect(gatesSatisfied(pr({ mergeable: "UNKNOWN" }), "g0rdonL").ok).toBe(false);
+  });
+
+  test("rejects requested changes and missing required reviews", () => {
+    expect(gatesSatisfied(pr({ reviewDecision: "CHANGES_REQUESTED" }), "g0rdonL").ok).toBe(false);
+    expect(gatesSatisfied(pr({ reviewDecision: "REVIEW_REQUIRED" }), "g0rdonL").ok).toBe(false);
+  });
+
+  test("accepts repositories that require no review (empty or null decision)", () => {
+    expect(gatesSatisfied(pr({ reviewDecision: "" }), "g0rdonL").ok).toBe(true);
+    expect(gatesSatisfied(pr({ reviewDecision: null }), "g0rdonL").ok).toBe(true);
+  });
+
+  test("rejects failing checks", () => {
+    const result = gatesSatisfied(
+      pr({
+        statusCheckRollup: [
+          { __typename: "CheckRun", status: "COMPLETED", conclusion: "SUCCESS" },
+          { __typename: "CheckRun", status: "COMPLETED", conclusion: "FAILURE" },
+        ],
+      }),
+      "g0rdonL",
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/checks are failure/i);
+  });
+
+  test("rejects running checks and failed commit statuses", () => {
+    const running = pr({ statusCheckRollup: [{ __typename: "CheckRun", status: "IN_PROGRESS", conclusion: null }] });
+    expect(gatesSatisfied(running, "g0rdonL")).toMatchObject({ ok: false, reason: expect.stringMatching(/pending/) });
+    const status = pr({ statusCheckRollup: [{ __typename: "StatusContext", state: "ERROR" }] });
+    expect(gatesSatisfied(status, "g0rdonL").ok).toBe(false);
+  });
+
+  test("treats skipped and neutral checks as passing", () => {
+    const rollup = [
+      { __typename: "CheckRun", status: "COMPLETED", conclusion: "SKIPPED" },
+      { __typename: "CheckRun", status: "COMPLETED", conclusion: "NEUTRAL" },
+      { __typename: "StatusContext", state: "SUCCESS" },
+    ];
+    expect(rollupState(rollup)).toBe("SUCCESS");
+    expect(rollupState([])).toBeNull();
+  });
+
+  test("respects branch protection", () => {
+    const result = gatesSatisfied(pr({ mergeStateStatus: "BLOCKED" }), "g0rdonL");
+    expect(result).toMatchObject({ ok: false, reason: expect.stringMatching(/branch protection/i) });
+  });
+
+  test("accepts no required checks (empty rollup)", () => {
+    expect(gatesSatisfied(pr({ statusCheckRollup: null }), "g0rdonL").ok).toBe(true);
+  });
+
+  test("rejects viewers who are neither author nor assignee", () => {
+    const result = gatesSatisfied(pr({ author: { login: "someone" }, assignees: [] }), "g0rdonL");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/author|assignee/i);
+  });
+
+  test("falls back to merge method when squash is not allowed", () => {
+    const noSquash = pr({ squashCommitAllowed: false });
+    expect(gatesSatisfied(noSquash, "g0rdonL")).toMatchObject({ ok: true, allowedMethod: "merge" });
+    const noSquashOrMerge = pr({
+      squashCommitAllowed: false,
+      mergeCommitAllowed: false,
+      rebaseCommitAllowed: true,
+    });
+    expect(gatesSatisfied(noSquashOrMerge, "g0rdonL")).toMatchObject({
+      ok: true,
+      allowedMethod: "rebase",
+    });
+    const nothing = pr({ squashCommitAllowed: false, mergeCommitAllowed: false, rebaseCommitAllowed: false });
+    expect(gatesSatisfied(nothing, "g0rdonL").ok).toBe(false);
+  });
+
+  test("resolveMergeMethod honours explicit request when allowed", () => {
+    expect(resolveMergeMethod(pr(), undefined)).toBe("squash");
+    expect(resolveMergeMethod(pr(), "squash")).toBe("squash");
+    expect(resolveMergeMethod(pr(), "merge")).toBe("merge");
+    expect(resolveMergeMethod(pr({ rebaseCommitAllowed: true }), "rebase")).toBe("rebase");
+  });
+
+  test("resolveMergeMethod throws when an explicit method is not allowed", () => {
+    expect(() => resolveMergeMethod(pr({ rebaseCommitAllowed: false }), "rebase")).toThrow(/rebase/);
   });
 });

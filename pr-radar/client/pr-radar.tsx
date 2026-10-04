@@ -2,7 +2,11 @@ import { openExternalUrl, type PluginSurfaceProps, useRpc } from "@getpaseo/plug
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from "react-native";
-import { acknowledgeViewerScope } from "../shared/viewer-scope";
+import {
+  acknowledgeViewerScope,
+  markPullRequestReady,
+  mergePullRequest,
+} from "../shared/viewer-scope";
 import {
   agentActionFor,
   BUCKET_TITLES,
@@ -117,6 +121,77 @@ export function PrRadar({
       );
     },
   });
+  const mergeRpc = useRpc(mergePullRequest);
+  const markReadyRpc = useRpc(markPullRequestReady);
+  const mergeMutation = useMutation({
+    mutationFn: (row: RadarRow) =>
+      mergeRpc({ url: row.url }).then((result) => {
+        if (result.error) throw new Error(result.error);
+        return result;
+      }),
+    onMutate: () => {
+      setOpenError(null);
+      setActionNotice(null);
+    },
+    onSuccess: (result, row) => {
+      setActionNotice(
+        `Merged ${row.repository}#${row.number ?? "PR"}${
+          result.method ? ` via ${result.method}` : ""
+        }.`,
+      );
+    },
+    onError: (mutationError, row) => {
+      setOpenError(
+        `Could not merge ${row.repository}#${row.number ?? "PR"}: ${
+          mutationError instanceof Error ? mutationError.message : "unknown error"
+        }`,
+      );
+    },
+    onSettled: () => {
+      void Promise.all([refetch(), refetchViewer()]);
+    },
+  });
+  const markReadyMutation = useMutation({
+    mutationFn: (row: RadarRow) =>
+      markReadyRpc({ url: row.url }).then((result) => {
+        if (result.error) throw new Error(result.error);
+        return result;
+      }),
+    onMutate: () => {
+      setOpenError(null);
+      setActionNotice(null);
+    },
+    onSuccess: (result, row) => {
+      setActionNotice(`Marked ${row.repository}#${row.number ?? "PR"} as ready for review.`);
+    },
+    onError: (mutationError, row) => {
+      setOpenError(
+        `Could not mark ${row.repository}#${row.number ?? "PR"} ready: ${
+          mutationError instanceof Error ? mutationError.message : "unknown error"
+        }`,
+      );
+    },
+    onSettled: () => {
+      void Promise.all([refetch(), refetchViewer()]);
+    },
+  });
+  const [pendingMergeId, setPendingMergeId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pendingMergeId) return undefined;
+    const timer = setTimeout(() => setPendingMergeId(null), 3500);
+    return () => clearTimeout(timer);
+  }, [pendingMergeId]);
+  const handleMerge = useCallback(
+    (row: RadarRow) => {
+      if (pendingMergeId !== row.id) {
+        setPendingMergeId(row.id);
+        return;
+      }
+      setPendingMergeId(null);
+      mergeMutation.mutate(row);
+    },
+    [mergeMutation, pendingMergeId],
+  );
   const agentMutation = useMutation({
     mutationFn: async (row: RadarRow) => {
       const action = agentActionFor(row);
@@ -468,6 +543,17 @@ export function PrRadar({
         : item.ownership === "external"
           ? "EXTERNAL"
           : "SCOPE UNKNOWN";
+    const canMerge =
+      item.ownership === "mine" &&
+      item.bucket === "ready" &&
+      !item.isDraft &&
+      item.number !== null;
+    const canMarkReady =
+      item.ownership === "mine" && item.isDraft && item.number !== null;
+    const mergePendingForRow = mergeMutation.isPending && mergeMutation.variables?.id === item.id;
+    const markReadyPendingForRow =
+      markReadyMutation.isPending && markReadyMutation.variables?.id === item.id;
+    const confirmPendingForRow = pendingMergeId === item.id;
     const actions = (
       <View style={styles.actions}>
         {agentAction ? (
@@ -492,6 +578,57 @@ export function PrRadar({
                 : agentAction.kind === "ask"
                   ? "Ask agent"
                   : "Start agent"}
+            </Text>
+          </Pressable>
+        ) : null}
+        {canMarkReady ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Mark pull request ${item.repository} ${item.number ?? ""} ready for review`}
+            accessibilityState={{ busy: markReadyPendingForRow, disabled: markReadyMutation.isPending }}
+            disabled={markReadyMutation.isPending}
+            onPress={() => markReadyMutation.mutate(item)}
+            style={({ pressed }) => [
+              styles.action,
+              styles.actionPrimary,
+              (pressed || markReadyPendingForRow) && styles.refreshPressed,
+              markReadyMutation.isPending && styles.actionDisabled,
+            ]}
+          >
+            <Text style={[styles.actionText, styles.actionPrimaryText]}>
+              {markReadyPendingForRow ? "Marking…" : "Mark as ready"}
+            </Text>
+          </Pressable>
+        ) : null}
+        {canMerge ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              confirmPendingForRow
+                ? `Confirm merge of pull request ${item.repository} ${item.number ?? ""}`
+                : `Merge pull request ${item.repository} ${item.number ?? ""}`
+            }
+            accessibilityState={{ busy: mergePendingForRow, disabled: mergeMutation.isPending }}
+            disabled={mergeMutation.isPending}
+            onPress={() => handleMerge(item)}
+            style={({ pressed }) => [
+              styles.action,
+              confirmPendingForRow ? styles.actionAgent : styles.actionPrimary,
+              (pressed || mergePendingForRow) && styles.refreshPressed,
+              mergeMutation.isPending && styles.actionDisabled,
+            ]}
+          >
+            <Text
+              style={[
+                styles.actionText,
+                confirmPendingForRow ? styles.actionAgentText : styles.actionPrimaryText,
+              ]}
+            >
+              {mergePendingForRow
+                ? "Merging…"
+                : confirmPendingForRow
+                  ? "Tap to confirm merge"
+                  : "Merge"}
             </Text>
           </Pressable>
         ) : null}

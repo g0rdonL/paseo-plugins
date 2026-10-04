@@ -56,3 +56,29 @@ export const acknowledgeViewerScope = defineRpc({
   input: z.object({ windowDays: z.number().int().min(1).max(365) }),
   output: z.object({ acknowledgedAt: z.string() }),
 });
+
+export const MergeMethodSchema = z.enum(["merge", "squash", "rebase"]);
+
+export const mergePullRequest = defineRpc({
+  name: "pr-radar-private.merge-pull-request",
+  input: z.object({
+    url: HttpsUrlSchema,
+    method: MergeMethodSchema.optional(),
+    deleteBranch: z.boolean().optional(),
+  }),
+  output: z.object({
+    mergedAt: z.string().nullable(),
+    method: MergeMethodSchema.nullable(),
+    sha: z.string().nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const markPullRequestReady = defineRpc({
+  name: "pr-radar-private.mark-pull-request-ready",
+  input: z.object({ url: HttpsUrlSchema }),
+  output: z.object({
+    readyAt: z.string().nullable(),
+    error: z.string().nullable(),
+  }),
+});
