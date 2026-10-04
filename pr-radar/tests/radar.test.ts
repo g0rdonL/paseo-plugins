@@ -86,9 +86,24 @@ function row(overrides: Partial<RadarRow> = {}): RadarRow {
 
 describe("sorting", () => {
   const rows = [
-    row({ id: "red-new", bucket: "needs-you", activityAt: "2026-08-30T12:00:00.000Z", repository: "z/one" }),
-    row({ id: "ready-old", bucket: "ready", activityAt: "2026-08-01T00:00:00.000Z", repository: "a/two" }),
-    row({ id: "ready-new", bucket: "ready", activityAt: "2026-08-29T00:00:00.000Z", repository: "m/three" }),
+    row({
+      id: "red-new",
+      bucket: "needs-you",
+      activityAt: "2026-08-30T12:00:00.000Z",
+      repository: "z/one",
+    }),
+    row({
+      id: "ready-old",
+      bucket: "ready",
+      activityAt: "2026-08-01T00:00:00.000Z",
+      repository: "a/two",
+    }),
+    row({
+      id: "ready-new",
+      bucket: "ready",
+      activityAt: "2026-08-29T00:00:00.000Z",
+      repository: "m/three",
+    }),
     row({
       id: "ready-theirs",
       bucket: "ready",
@@ -96,7 +111,13 @@ describe("sorting", () => {
       activityAt: "2026-08-30T13:00:00.000Z",
       repository: "b/four",
     }),
-    row({ id: "waiting", bucket: "waiting", activityAt: "2026-08-15T00:00:00.000Z", repository: "a/two", number: 7 }),
+    row({
+      id: "waiting",
+      bucket: "waiting",
+      activityAt: "2026-08-15T00:00:00.000Z",
+      repository: "a/two",
+      number: 7,
+    }),
   ];
   const ids = (sorted: RadarRow[]) => sorted.map((r) => r.id);
 
