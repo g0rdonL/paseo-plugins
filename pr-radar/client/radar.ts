@@ -101,6 +101,7 @@ export interface ViewerScopeData {
   reviewRequestedUrls: readonly string[];
   assigneeUrls: readonly string[];
   mentionedUrls: readonly string[];
+  ownedUrls: readonly string[];
   error: string | null;
   inboxItems: readonly GitHubInboxItem[];
 }
@@ -539,24 +540,14 @@ export function applyViewerScope(
   const reviewRequested = new Set(
     scope?.error ? [] : scope?.reviewRequestedUrls.map((url) => url.toLowerCase()),
   );
-  const mentioned = new Set(
-    scope?.error ? [] : scope?.mentionedUrls.map((url) => url.toLowerCase()),
-  );
   const ownershipAvailable = scope !== null && scope.error === null;
   const result = rows.map((row) => {
     const url = row.url.toLowerCase();
     const isMine = authored.has(url) || assigned.has(url);
     const isReviewer = reviewRequested.has(url);
-    const isMentioned = mentioned.has(url) && !isReviewer && !isMine;
     const updated: RadarRow = {
       ...row,
-      ownership: ownershipAvailable
-        ? isMine
-          ? "mine"
-          : isReviewer || isMentioned
-            ? "external"
-            : "external"
-        : "unknown",
+      ownership: ownershipAvailable ? (isMine ? "mine" : "external") : "unknown",
       reviewRequestedFromMe: ownershipAvailable && isReviewer,
     };
     const classification = classifyRow(updated);

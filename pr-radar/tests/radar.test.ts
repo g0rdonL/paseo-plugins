@@ -757,6 +757,7 @@ describe("viewer scope", () => {
       reviewRequestedUrls: [review.url],
       assigneeUrls: [],
       mentionedUrls: [],
+      ownedUrls: [],
       error: null,
       inboxItems: [],
     });
@@ -788,6 +789,7 @@ describe("viewer scope", () => {
       reviewRequestedUrls: [],
       assigneeUrls: [assigned.url],
       mentionedUrls: [mentioned.url],
+      ownedUrls: [],
       error: null,
       inboxItems: [],
     });
@@ -810,12 +812,102 @@ describe("viewer scope", () => {
       reviewRequestedUrls: [],
       assigneeUrls: [shared.url],
       mentionedUrls: [shared.url],
+      ownedUrls: [shared.url],
       error: null,
       inboxItems: [],
     });
 
     expect(scoped[0]?.ownership).toBe("mine");
     expect(scoped[0]?.reviewRequestedFromMe).toBe(false);
+  });
+
+  test("treats owner URLs as external and yields no review request", () => {
+    const onlyOwned = row({
+      id: "private/owned#21",
+      url: "https://github.com/private/owned/pull/21",
+      ownership: "unknown",
+      reviewDecision: null,
+    });
+    const scoped = applyViewerScope([onlyOwned], {
+      authoredUrls: [],
+      reviewRequestedUrls: [],
+      assigneeUrls: [],
+      mentionedUrls: [],
+      ownedUrls: [onlyOwned.url],
+      error: null,
+      inboxItems: [],
+    });
+
+    expect(scoped[0]).toMatchObject({
+      ownership: "external",
+      reviewRequestedFromMe: false,
+    });
+  });
+
+  test("owner scope does not override an authored or requested review", () => {
+    const authored = row({
+      id: "private/mine#1",
+      url: "https://github.com/private/mine/pull/1",
+      ownership: "unknown",
+    });
+    const reviewed = row({
+      id: "private/review#2",
+      url: "https://github.com/private/review/pull/2",
+      ownership: "unknown",
+      reviewDecision: "pending",
+    });
+    const scoped = applyViewerScope([authored, reviewed], {
+      authoredUrls: [authored.url],
+      reviewRequestedUrls: [reviewed.url],
+      assigneeUrls: [],
+      mentionedUrls: [],
+      ownedUrls: [authored.url, reviewed.url],
+      error: null,
+      inboxItems: [],
+    });
+
+    expect(scoped.find((item) => item.id === authored.id)?.ownership).toBe("mine");
+    expect(scoped.find((item) => item.id === reviewed.id)).toMatchObject({
+      ownership: "external",
+      reviewRequestedFromMe: true,
+    });
+  });
+});
+
+describe("GitHub inbox owner role", () => {
+  test("mergeInboxRows treats owner-role items as external, no review request", () => {
+    const inboxItem: GitHubInboxItem = {
+      id: "PR_OWN",
+      number: 21,
+      url: "https://github.com/private/owned/pull/21",
+      title: "Private repo PR",
+      repository: "private/owned",
+      author: "someone",
+      authorKind: "human",
+      createdAt: "2026-09-01T08:00:00.000Z",
+      updatedAt: "2026-09-02T08:00:00.000Z",
+      baseRefName: "main",
+      headRefName: "fix/owned",
+      isDraft: false,
+      isSecurity: false,
+      comments: 0,
+      labels: [],
+      mergeable: "MERGEABLE",
+      mergeStateStatus: "CLEAN",
+      checksStatus: "success",
+      reviewDecision: null,
+      role: "owner",
+      changes: ["New PR"],
+    };
+    const snapshot = buildRadarSnapshot([], []);
+    const [merged] = mergeInboxRows(snapshot, [inboxItem]);
+
+    expect(merged).toMatchObject({
+      id: "private/owned#21",
+      ownership: "external",
+      reviewRequestedFromMe: false,
+      changes: ["New PR"],
+    });
   });
 });
 

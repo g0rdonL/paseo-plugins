@@ -23,7 +23,7 @@ export const GitHubInboxItemSchema = z.object({
   mergeStateStatus: z.string().nullable(),
   checksStatus: z.enum(["success", "pending", "none", "failure"]),
   reviewDecision: z.enum(["pending", "approved", "changes_requested"]).nullable(),
-  role: z.enum(["author", "reviewer", "assignee", "mention"]),
+  role: z.enum(["author", "reviewer", "assignee", "mention", "owner"]),
   changes: z.array(z.string()),
 });
 
@@ -41,6 +41,7 @@ export const viewerScope = defineRpc({
     reviewRequestedUrls: z.array(HttpsUrlSchema),
     assigneeUrls: z.array(HttpsUrlSchema),
     mentionedUrls: z.array(HttpsUrlSchema),
+    ownedUrls: z.array(HttpsUrlSchema),
     inboxItems: z.array(GitHubInboxItemSchema),
     truncated: z.boolean(),
     coverageNote: z.string(),

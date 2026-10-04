@@ -136,6 +136,102 @@ async function searchScopeUrls(
   return (JSON.parse(output) as Array<{ url: string }>).map(({ url }) => url);
 }
 
+const REPO_SWEEP_BATCH_SIZE = 10;
+const REPO_SWEEP_TIMEOUT_MS = 10_000;
+
+interface PrListRecord {
+  id: string;
+  number: number;
+  title: string;
+  url: string;
+  isDraft: boolean;
+  createdAt: string;
+  updatedAt: string;
+  author: { login: string; is_bot?: boolean; type?: string } | null;
+  comments: unknown[] | number;
+  labels: Array<{ name: string }>;
+}
+
+function commentsCount(raw: PrListRecord["comments"]): number {
+  if (Array.isArray(raw)) return raw.length;
+  if (typeof raw === "number") return raw;
+  return 0;
+}
+
+async function listOwnedRepos(viewer: string): Promise<string[]> {
+  const output = await runGh([
+    "repo",
+    "list",
+    viewer,
+    "--visibility=private",
+    "--json=name",
+    `--limit=${SCOPE_SEARCH_LIMIT}`,
+  ]);
+  return (JSON.parse(output) as Array<{ name: string }>).map(({ name }) => name);
+}
+
+async function searchOwnedReposPullRequests(viewer: string): Promise<SearchRecord[]> {
+  let repos: string[];
+  try {
+    repos = await listOwnedRepos(viewer);
+  } catch (error) {
+    console.error("PR Radar failed to enumerate owned repositories", error);
+    return [];
+  }
+  if (repos.length === 0) return [];
+  const batches: string[][] = [];
+  for (let i = 0; i < repos.length; i += REPO_SWEEP_BATCH_SIZE) {
+    batches.push(repos.slice(i, i + REPO_SWEEP_BATCH_SIZE));
+  }
+  const settled = await Promise.allSettled(
+    batches.map(async (batch): Promise<SearchRecord[]> => {
+      const perRepo = await Promise.all(
+        batch.map(async (repo): Promise<SearchRecord[]> => {
+          const output = await runGh(
+            [
+              "pr",
+              "list",
+              "--repo",
+              `${viewer}/${repo}`,
+              "--state=open",
+              "--json",
+              "id,number,title,url,isDraft,createdAt,updatedAt,author,comments,labels",
+            ],
+            REPO_SWEEP_TIMEOUT_MS,
+          );
+          const prs = JSON.parse(output) as PrListRecord[];
+          const nameWithOwner = `${viewer}/${repo}`;
+          return prs.map((pr) => ({
+            id: pr.id,
+            number: pr.number,
+            title: pr.title,
+            url: pr.url,
+            isDraft: pr.isDraft,
+            createdAt: pr.createdAt,
+            updatedAt: pr.updatedAt,
+            author: pr.author
+              ? {
+                  login: pr.author.login,
+                  is_bot: pr.author.is_bot,
+                  type: pr.author.type,
+                }
+              : null,
+            repository: { nameWithOwner },
+            commentsCount: commentsCount(pr.comments),
+            labels: pr.labels ?? [],
+          }));
+        }),
+      );
+      return perRepo.flat();
+    }),
+  );
+  const records: SearchRecord[] = [];
+  for (const result of settled) {
+    if (result.status === "fulfilled") records.push(...result.value);
+  }
+  return records;
+}
+
 const enrichmentQuery = `
   query($ids: [ID!]!) {
     nodes(ids: $ids) {
@@ -219,7 +315,7 @@ function reviewDecision(state: Enrichment | undefined): GitHubInboxItem["reviewD
 
 function toInboxItem(
   record: SearchRecord,
-  role: "author" | "reviewer" | "assignee" | "mention",
+  role: "author" | "reviewer" | "assignee" | "mention" | "owner",
   state: Enrichment | undefined,
 ): GitHubInboxItem {
   const labels = record.labels.map(({ name }) => name);
@@ -322,6 +418,7 @@ export async function resolveViewerScope({
       reviewRequestedScope,
       assignedScope,
       mentionedScope,
+      ownedRepos,
       stored,
     ] = await Promise.all([
       searchPullRequests("author", viewer, since),
@@ -332,10 +429,12 @@ export async function resolveViewerScope({
       searchScopeUrls("review-requested"),
       searchScopeUrls("assignee"),
       searchScopeUrls("mentions"),
+      searchOwnedReposPullRequests(viewer),
       readState(),
     ]);
-    // Merge priority: author > assignee > reviewer > mention (most "owning" role wins on overlap).
+    // Merge priority: author > assignee > reviewer > mention > owner (most "owning" role wins on overlap).
     const records = new Map<string, { record: SearchRecord; role: GitHubInboxItem["role"] }>();
+    for (const record of ownedRepos) records.set(record.id, { record, role: "owner" });
     for (const record of mentioned) records.set(record.id, { record, role: "mention" });
     for (const record of reviewRequested) records.set(record.id, { record, role: "reviewer" });
     for (const record of assigned) records.set(record.id, { record, role: "assignee" });
@@ -382,16 +481,18 @@ export async function resolveViewerScope({
       ...mentioned.map(({ url }) => url),
       ...mentionedScope.filter((url) => requestedUrls.has(url.toLowerCase())),
     ]);
+    const ownedUrls = new Set([...ownedRepos.map(({ url }) => url), ...requestedUrls]);
     const coverageNote =
       enrichment.failures > 0
         ? `${enrichment.failures} GitHub detail request${enrichment.failures === 1 ? "" : "s"} failed; affected PRs use conservative states.`
-        : `Open PRs where you are author, assignee, reviewer, or mentioned. Organization SSO restrictions may omit results.`;
+        : `Open PRs where you are author, assignee, reviewer, mentioned, or in a repository you own. Organization SSO restrictions may omit results.`;
     return {
       viewer,
       authoredUrls: [...authoredUrls],
       reviewRequestedUrls: [...reviewRequestedUrls],
       assigneeUrls: [...assigneeUrls],
       mentionedUrls: [...mentionedUrls],
+      ownedUrls: [...ownedUrls],
       inboxItems,
       truncated:
         authored.length === SEARCH_LIMIT ||
@@ -411,6 +512,7 @@ export async function resolveViewerScope({
       reviewRequestedUrls: [],
       assigneeUrls: [],
       mentionedUrls: [],
+      ownedUrls: [],
       inboxItems: [],
       truncated: false,
       coverageNote: "GitHub inbox data is unavailable.",

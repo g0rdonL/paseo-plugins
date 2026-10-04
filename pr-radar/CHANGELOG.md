@@ -6,6 +6,14 @@
 
 * Migrate PR Radar to Paseo 0.8 runtime entries.
 
+### Fork changes (1.3.0-fork.2)
+
+* Add an `owner` role that enumerates every private repository owned by the viewer
+  via `gh repo list --visibility=private` + `gh pr list --repo` (the GitHub search
+  index excludes private content from `user:`/`org:` queries). Owner is the
+  lowest-priority role, so author/assignee/reviewer/mention still win on overlap.
+  Surfacing via `viewerScope.ownedUrls` and the inbox item's `role: "owner"`.
+
 ## [1.2.0](https://github.com/omercnet/paseo-plugins/compare/pr-radar-v1.1.0...pr-radar-v1.2.0) (2026-10-03)
 
 
