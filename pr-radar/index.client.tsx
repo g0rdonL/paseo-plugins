@@ -3,6 +3,8 @@ import { SidebarRow } from "@getpaseo/plugin/client/ui";
 import { PrRadar } from "./client/pr-radar";
 import { supportsRadarScreen } from "./client/screen-state";
 import { RadarSidebar } from "./client/sidebar";
+import { addKeydownListener, currentPathname, isMacPlatform } from "./client/web";
+import { isOpenRadarChord, workspaceIdFromPathname } from "./shared/open-shortcut";
 
 export default function contribute(client: PluginClientContext) {
   const screens = supportsRadarScreen(client, SidebarRow);
@@ -47,6 +49,18 @@ export default function contribute(client: PluginClientContext) {
       }),
     );
   }
+  // ⌥⌘P: open PR Radar in the right pane of the current workspace (desktop only).
+  const isMac = isMacPlatform();
+  const removeShortcut =
+    typeof client.addWorkspacePanel === "function"
+      ? addKeydownListener((event) => {
+          if (!isOpenRadarChord(event, isMac)) return;
+          const workspaceId = workspaceIdFromPathname(currentPathname() ?? "");
+          if (!workspaceId) return;
+          event.preventDefault();
+          client.openPanel("radar", { workspaceId, location: "explorer" });
+        })
+      : () => {};
   client.addCommandCenterItem({
     id: "open-radar",
     title: "Open PR Radar",
@@ -60,6 +74,7 @@ export default function contribute(client: PluginClientContext) {
     },
   });
   return () => {
+    removeShortcut();
     for (const remove of removePanel) remove();
   };
 }
