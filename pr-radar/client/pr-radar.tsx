@@ -24,6 +24,10 @@ import {
   openPullRequestUrl,
   type RadarBucket,
   type RadarRow,
+  SORT_KEYS,
+  SORT_TITLES,
+  type SortKey,
+  sortRows,
 } from "./radar";
 import {
   DIRECTORY_PARTIAL,
@@ -97,6 +101,7 @@ export function PrRadar({
       ? (filter as SavedView)
       : null;
   const [windowDays, setWindowDays] = useState(30);
+  const [sortKey, setSortKey] = useState<SortKey>("attention");
   const [search, setSearch] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const [openError, setOpenError] = useState<string | null>(null);
@@ -253,6 +258,7 @@ export function PrRadar({
       }),
     [activeOnly, now, rows, savedView, search, selected, focusedPr],
   );
+  const sortedRows = useMemo(() => sortRows(visibleRows, sortKey), [visibleRows, sortKey]);
 
   const styles = useMemo(() => {
     const gutter = layout.compact ? 14 : 24;
@@ -360,6 +366,7 @@ export function PrRadar({
         borderColor: theme.colors.foreground,
       },
       chipText: { color: theme.colors.foregroundMuted, fontSize: 12, fontWeight: "600" as const },
+      sortRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: 7 },
       chipTextActive: { color: theme.colors.surface0 },
       search: {
         minHeight: 40,
@@ -786,6 +793,26 @@ export function PrRadar({
         style={styles.search}
         value={search}
       />
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel="Sort pull requests"
+        style={styles.sortRow}
+      >
+        <Text style={[styles.chipText, { alignSelf: "center" }]}>Sort</Text>
+        {SORT_KEYS.map((key) => (
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ checked: sortKey === key }}
+            key={key}
+            onPress={() => setSortKey(key)}
+            style={[styles.chip, sortKey === key && styles.chipActive]}
+          >
+            <Text style={[styles.chipText, sortKey === key && styles.chipTextActive]}>
+              {SORT_TITLES[key]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
       {viewerData ? (
         <View style={{ gap: 7 }}>
           <Text style={styles.heroDetail}>
@@ -838,7 +865,7 @@ export function PrRadar({
     >
       <FlatList
         contentContainerStyle={styles.content}
-        data={visibleRows}
+        data={sortedRows}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={header}
         ListEmptyComponent={
