@@ -92,7 +92,10 @@ describe("background cache", () => {
     const sweep = gh.calls.length;
     expect(sweep).toBeGreaterThan(5);
 
-    const second = await resolveViewerScope({ urls: ["https://github.com/a/b/pull/1"], windowDays: 30 });
+    const second = await resolveViewerScope({
+      urls: ["https://github.com/a/b/pull/1"],
+      windowDays: 30,
+    });
     expect(second.viewer).toBe("g0rdonL");
     expect(second.ownedUrls).toContain("https://github.com/a/b/pull/1");
     expect(gh.calls.length).toBe(sweep);
