@@ -161,7 +161,7 @@ export function PrRadar({
       setOpenError(null);
       setActionNotice(null);
     },
-    onSuccess: (result, row) => {
+    onSuccess: (_result, row) => {
       setActionNotice(`Marked ${row.repository}#${row.number ?? "PR"} as ready for review.`);
     },
     onError: (mutationError, row) => {
@@ -544,12 +544,8 @@ export function PrRadar({
           ? "EXTERNAL"
           : "SCOPE UNKNOWN";
     const canMerge =
-      item.ownership === "mine" &&
-      item.bucket === "ready" &&
-      !item.isDraft &&
-      item.number !== null;
-    const canMarkReady =
-      item.ownership === "mine" && item.isDraft && item.number !== null;
+      item.ownership === "mine" && item.bucket === "ready" && !item.isDraft && item.number !== null;
+    const canMarkReady = item.ownership === "mine" && item.isDraft && item.number !== null;
     const mergePendingForRow = mergeMutation.isPending && mergeMutation.variables?.id === item.id;
     const markReadyPendingForRow =
       markReadyMutation.isPending && markReadyMutation.variables?.id === item.id;
@@ -585,7 +581,10 @@ export function PrRadar({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Mark pull request ${item.repository} ${item.number ?? ""} ready for review`}
-            accessibilityState={{ busy: markReadyPendingForRow, disabled: markReadyMutation.isPending }}
+            accessibilityState={{
+              busy: markReadyPendingForRow,
+              disabled: markReadyMutation.isPending,
+            }}
             disabled={markReadyMutation.isPending}
             onPress={() => markReadyMutation.mutate(item)}
             style={({ pressed }) => [

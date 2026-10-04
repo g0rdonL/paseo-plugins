@@ -1,14 +1,7 @@
 import type { z } from "zod";
-import type {
-  markPullRequestReady,
-  mergePullRequest,
-} from "../shared/viewer-scope";
+import type { markPullRequestReady, mergePullRequest } from "../shared/viewer-scope";
 import { HttpsUrlSchema } from "../shared/viewer-scope";
-import {
-  invalidateInboxState,
-  runGhPublic,
-  viewerLoginPublic,
-} from "./viewer-scope";
+import { invalidateInboxState, runGhPublic, viewerLoginPublic } from "./viewer-scope";
 
 const FETCH_TIMEOUT_MS = 15_000;
 const MERGE_TIMEOUT_MS = 30_000;
@@ -68,7 +61,9 @@ const FAILED_CONCLUSIONS = new Set([
 ]);
 
 /** Summarises the check list: any failure wins, then anything still running, else success. */
-export function rollupState(checks: RollupEntry[] | null): "SUCCESS" | "PENDING" | "FAILURE" | null {
+export function rollupState(
+  checks: RollupEntry[] | null,
+): "SUCCESS" | "PENDING" | "FAILURE" | null {
   if (!checks || checks.length === 0) return null;
   let pending = false;
   for (const check of checks) {
@@ -89,7 +84,9 @@ export function rollupState(checks: RollupEntry[] | null): "SUCCESS" | "PENDING"
 
 async function fetchMergeSettings(
   identity: PullRequestIdentity,
-): Promise<Pick<PullRequestView, "mergeCommitAllowed" | "squashCommitAllowed" | "rebaseCommitAllowed">> {
+): Promise<
+  Pick<PullRequestView, "mergeCommitAllowed" | "squashCommitAllowed" | "rebaseCommitAllowed">
+> {
   const output = await runGhPublic(
     [
       "api",
@@ -143,9 +140,13 @@ async function fetchPullRequest(url: string): Promise<PullRequestView> {
 export function gatesSatisfied(
   pr: PullRequestView,
   viewer: string,
-): { ok: true; allowedMethod: "merge" | "squash" | "rebase" | null } | { ok: false; reason: string } {
-  if (pr.state !== "OPEN") return { ok: false, reason: `Pull request is ${pr.state.toLowerCase()}, not open.` };
-  if (pr.isDraft) return { ok: false, reason: "Draft pull requests must be marked ready before merging." };
+):
+  | { ok: true; allowedMethod: "merge" | "squash" | "rebase" | null }
+  | { ok: false; reason: string } {
+  if (pr.state !== "OPEN")
+    return { ok: false, reason: `Pull request is ${pr.state.toLowerCase()}, not open.` };
+  if (pr.isDraft)
+    return { ok: false, reason: "Draft pull requests must be marked ready before merging." };
   const isAuthor = pr.author?.login === viewer;
   const isAssignee = pr.assignees.some(({ login }) => login === viewer);
   if (!isAuthor && !isAssignee) {
@@ -289,7 +290,9 @@ export async function performMerge({
 
 export async function performMarkReady({
   url,
-}: z.output<typeof markPullRequestReady.input>): Promise<z.input<typeof markPullRequestReady.output>> {
+}: z.output<typeof markPullRequestReady.input>): Promise<
+  z.input<typeof markPullRequestReady.output>
+> {
   if (!parsePullRequestUrl(url)) {
     return { readyAt: null, error: "Invalid pull request URL." };
   }
@@ -316,7 +319,10 @@ export async function performMarkReady({
   const isAuthor = pr.author?.login === viewer;
   const isAssignee = pr.assignees.some(({ login }) => login === viewer);
   if (!isAuthor && !isAssignee) {
-    return { readyAt: null, error: "Only the author or an assignee can mark this pull request ready." };
+    return {
+      readyAt: null,
+      error: "Only the author or an assignee can mark this pull request ready.",
+    };
   }
   if (pr.state !== "OPEN") {
     return { readyAt: null, error: `Pull request is ${pr.state.toLowerCase()}, not open.` };
@@ -330,7 +336,8 @@ export async function performMarkReady({
   } catch (error) {
     return {
       readyAt: null,
-      error: error instanceof Error ? error.message : "GitHub rejected marking the pull request ready.",
+      error:
+        error instanceof Error ? error.message : "GitHub rejected marking the pull request ready.",
     };
   }
 

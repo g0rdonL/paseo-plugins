@@ -26,10 +26,10 @@ import {
 } from "../client/screen-state";
 import {
   gatesSatisfied,
+  type PullRequestView,
   parsePullRequestUrl,
   resolveMergeMethod,
   rollupState,
-  type PullRequestView,
 } from "../server/merge";
 import { type GitHubInboxItem, GitHubInboxItemSchema } from "../shared/viewer-scope";
 
@@ -1093,7 +1093,10 @@ describe("merge gates", () => {
   });
 
   test("passes gates for an open, approved, mergeable PR assigned to viewer", () => {
-    const result = gatesSatisfied(pr({ author: { login: "tom" }, assignees: [{ login: "g0rdonL" }] }), "g0rdonL");
+    const result = gatesSatisfied(
+      pr({ author: { login: "tom" }, assignees: [{ login: "g0rdonL" }] }),
+      "g0rdonL",
+    );
     expect(result.ok).toBe(true);
   });
 
@@ -1138,8 +1141,13 @@ describe("merge gates", () => {
   });
 
   test("rejects running checks and failed commit statuses", () => {
-    const running = pr({ statusCheckRollup: [{ __typename: "CheckRun", status: "IN_PROGRESS", conclusion: null }] });
-    expect(gatesSatisfied(running, "g0rdonL")).toMatchObject({ ok: false, reason: expect.stringMatching(/pending/) });
+    const running = pr({
+      statusCheckRollup: [{ __typename: "CheckRun", status: "IN_PROGRESS", conclusion: null }],
+    });
+    expect(gatesSatisfied(running, "g0rdonL")).toMatchObject({
+      ok: false,
+      reason: expect.stringMatching(/pending/),
+    });
     const status = pr({ statusCheckRollup: [{ __typename: "StatusContext", state: "ERROR" }] });
     expect(gatesSatisfied(status, "g0rdonL").ok).toBe(false);
   });
@@ -1156,7 +1164,10 @@ describe("merge gates", () => {
 
   test("respects branch protection", () => {
     const result = gatesSatisfied(pr({ mergeStateStatus: "BLOCKED" }), "g0rdonL");
-    expect(result).toMatchObject({ ok: false, reason: expect.stringMatching(/branch protection/i) });
+    expect(result).toMatchObject({
+      ok: false,
+      reason: expect.stringMatching(/branch protection/i),
+    });
   });
 
   test("accepts no required checks (empty rollup)", () => {
@@ -1181,7 +1192,11 @@ describe("merge gates", () => {
       ok: true,
       allowedMethod: "rebase",
     });
-    const nothing = pr({ squashCommitAllowed: false, mergeCommitAllowed: false, rebaseCommitAllowed: false });
+    const nothing = pr({
+      squashCommitAllowed: false,
+      mergeCommitAllowed: false,
+      rebaseCommitAllowed: false,
+    });
     expect(gatesSatisfied(nothing, "g0rdonL").ok).toBe(false);
   });
 
@@ -1193,6 +1208,8 @@ describe("merge gates", () => {
   });
 
   test("resolveMergeMethod throws when an explicit method is not allowed", () => {
-    expect(() => resolveMergeMethod(pr({ rebaseCommitAllowed: false }), "rebase")).toThrow(/rebase/);
+    expect(() => resolveMergeMethod(pr({ rebaseCommitAllowed: false }), "rebase")).toThrow(
+      /rebase/,
+    );
   });
 });
