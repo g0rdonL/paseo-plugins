@@ -1,14 +1,16 @@
 import { openExternalUrl, type PluginSurfaceProps, useRpc } from "@getpaseo/plugin/client";
 import { copyText } from "@getpaseo/plugin/client/react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
+  type TextStyle,
   View,
 } from "react-native";
 import {
@@ -77,6 +79,34 @@ function agentState(row: RadarRow): string {
 
 // Below this width (px) the radar uses its compact card layout: actions under the text.
 const NARROW_PANE_WIDTH = 640;
+
+// Single-line text that scrolls sideways instead of wrapping, so narrow panes keep each line short.
+function ScrollingText({
+  style,
+  children,
+}: {
+  style: TextStyle | TextStyle[];
+  children: ReactNode;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={scrollingTextStyles.scroller}
+      contentContainerStyle={scrollingTextStyles.content}
+    >
+      <Text style={[style, scrollingTextStyles.text]} numberOfLines={1}>
+        {children}
+      </Text>
+    </ScrollView>
+  );
+}
+
+const scrollingTextStyles = StyleSheet.create({
+  scroller: { flexGrow: 0, flexShrink: 1, alignSelf: "stretch" },
+  content: { flexGrow: 1 },
+  text: { flexShrink: 0 },
+});
 
 export function PrRadar({
   theme,
@@ -780,14 +810,10 @@ export function PrRadar({
             ) : null}
             {isStale ? <Text style={styles.badge}>STALE</Text> : null}
           </View>
-          <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
-            {item.title}
-          </Text>
+          <ScrollingText style={styles.title}>{item.title}</ScrollingText>
           <View style={styles.reasonLine}>
             <View style={[styles.reasonDot, { backgroundColor: color }]} />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} scrollEventThrottle={16}>
-              <Text style={[styles.reason, { color }, { flexShrink: 0 }]}>{item.reason}</Text>
-            </ScrollView>
+            <ScrollingText style={[styles.reason, { color }]}>{item.reason}</ScrollingText>
           </View>
           <Text style={styles.metadata} numberOfLines={1} ellipsizeMode="middle">
             {checkSummary(item)}
@@ -1013,15 +1039,15 @@ export function PrRadar({
       </View>
       {viewerData ? (
         <View style={{ gap: 7 }}>
-          <Text style={styles.heroDetail}>
+          <ScrollingText style={styles.heroDetail}>
             {viewerData.coverageNote}
             {viewerData.truncated ? " Results reached the 100-item inbox cap." : ""}
-          </Text>
+          </ScrollingText>
           {viewerData.updates > 0 ? (
-            <Text style={styles.heroDetail}>
+            <ScrollingText style={styles.heroDetail}>
               These are PR state changes detected in the {windowDays}-day view. Marking them seen
               only clears PR Radar badges; it does not change GitHub notifications or pull requests.
-            </Text>
+            </ScrollingText>
           ) : null}
           {viewerData.updates > 0 ? (
             <Pressable
