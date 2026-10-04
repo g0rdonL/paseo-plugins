@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import type { z } from "zod";
 import type { acknowledgeViewerScope, GitHubInboxItem, viewerScope } from "../shared/viewer-scope";
+import { mergeChanges } from "./changes";
 
 const execFileAsync = promisify(execFile);
 const SEARCH_LIMIT = 100;
@@ -364,7 +365,7 @@ export async function resolveViewerScope({
       const prior = previous.items[item.id];
       const detected =
         initialized && (!prior || enrichment.states.has(item.id)) ? detectChanges(prior, item) : [];
-      item.changes = [...new Set([...(previous.pendingChanges[item.id] ?? []), ...detected])];
+      item.changes = mergeChanges(previous.pendingChanges[item.id] ?? [], detected);
       nextItems[item.id] = prior && !enrichment.states.has(item.id) ? prior : storedItem(item);
       if (item.changes.length > 0) nextPending[item.id] = item.changes;
     }
