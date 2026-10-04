@@ -13,6 +13,7 @@ import {
   BUCKETS,
   buildAgentPrompt,
   checkSummary,
+  cycleWindowDays,
   formatAge,
   hasActiveAgent,
   isMergeable,
@@ -91,6 +92,7 @@ export function PrRadar({
   const [windowDays, setWindowDays] = useState(30);
   const [sortKey, setSortKey] = useState<SortKey>("mergeable");
   const [search, setSearch] = useState("");
+  const [sortOpen, setSortOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [openError, setOpenError] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
@@ -348,13 +350,6 @@ export function PrRadar({
         fontWeight: "700" as const,
         letterSpacing: 1.8,
       },
-      heroTitle: {
-        color: theme.colors.foreground,
-        fontSize: layout.compact ? 28 : 38,
-        lineHeight: layout.compact ? 32 : 42,
-        fontWeight: "800" as const,
-        letterSpacing: -1.2,
-      },
       heroDetail: { color: theme.colors.foregroundMuted, fontSize: 13, lineHeight: 18 },
       summary: {
         flexDirection: layout.compact ? ("column" as const) : ("row" as const),
@@ -402,14 +397,15 @@ export function PrRadar({
         fontSize: 13,
         fontWeight: "700" as const,
       },
-      chips: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: 7 },
+      filters: { gap: 6 },
+      chips: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: 6 },
       chip: {
-        minHeight: 32,
+        minHeight: 28,
         justifyContent: "center" as const,
-        paddingHorizontal: 10,
+        paddingHorizontal: 9,
         borderWidth: 1,
         borderColor: mutedBorder,
-        borderRadius: 16,
+        borderRadius: 14,
       },
       chipActive: {
         backgroundColor: theme.colors.foreground,
@@ -417,17 +413,45 @@ export function PrRadar({
       },
       chipText: { color: theme.colors.foregroundMuted, fontSize: 12, fontWeight: "600" as const },
       chipTextActive: { color: theme.colors.surface0 },
+      // Lens chips are secondary filters: smaller, borderless, so the bucket row reads first.
+      lensChip: {
+        minHeight: 24,
+        justifyContent: "center" as const,
+        paddingHorizontal: 8,
+        borderRadius: 12,
+        backgroundColor: theme.colors.surface1,
+      },
+      lensChipActive: { backgroundColor: theme.colors.accent },
+      lensChipText: {
+        color: theme.colors.foregroundMuted,
+        fontSize: 11,
+        fontWeight: "600" as const,
+      },
+      lensChipTextActive: { color: theme.colors.accentForeground },
+      searchRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: 6 },
       search: {
-        minHeight: 40,
+        flex: 1,
+        minHeight: 34,
         color: theme.colors.foreground,
         backgroundColor: theme.colors.surface1,
         borderWidth: 1,
         borderColor: theme.colors.border,
         borderRadius: 8,
         paddingHorizontal: 12,
-        paddingVertical: 8,
-        fontSize: 14,
+        paddingVertical: 6,
+        fontSize: 13,
       },
+      setting: {
+        minHeight: 34,
+        justifyContent: "center" as const,
+        paddingHorizontal: 10,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 8,
+        backgroundColor: theme.colors.surface1,
+      },
+      settingOpen: { borderColor: theme.colors.accent },
+      settingText: { color: theme.colors.foreground, fontSize: 12, fontWeight: "600" as const },
       warning: {
         marginHorizontal: gutter,
         marginBottom: 10,
@@ -470,6 +494,16 @@ export function PrRadar({
         paddingHorizontal: 5,
         paddingVertical: 2,
       },
+      badgeDanger: {
+        color: theme.colors.statusDanger,
+        borderColor: theme.colors.statusDanger,
+        backgroundColor: `${theme.colors.statusDanger}1f`,
+      },
+      badgeWarning: {
+        color: theme.colors.statusWarning,
+        borderColor: theme.colors.statusWarning,
+        backgroundColor: `${theme.colors.statusWarning}1f`,
+      },
       title: {
         color: theme.colors.foreground,
         fontSize: layout.compact ? 15 : 16,
@@ -502,6 +536,19 @@ export function PrRadar({
         backgroundColor: theme.colors.accent,
       },
       actionAgentText: { color: theme.colors.accentForeground },
+      // Merge is the one irreversible action on the screen; green keeps it distinct from
+      // navigation buttons. Rest state is outlined, the confirm tap fills it.
+      actionMerge: {
+        borderColor: theme.colors.statusSuccess,
+        backgroundColor: `${theme.colors.statusSuccess}1f`,
+      },
+      actionMergeConfirm: {
+        borderColor: theme.colors.statusSuccess,
+        backgroundColor: theme.colors.statusSuccess,
+      },
+      actionMergeText: { color: theme.colors.statusSuccess },
+      // surface0, not white: Dracula's success green is light and white text fails contrast.
+      actionMergeConfirmText: { color: theme.colors.surface0 },
       actionDisabled: { opacity: 0.55 },
       actionText: { color: theme.colors.foreground, fontSize: 12, fontWeight: "600" as const },
       actionPrimaryText: { color: theme.colors.accent },
@@ -618,7 +665,7 @@ export function PrRadar({
             onPress={() => handleMerge(item)}
             style={({ pressed }) => [
               styles.action,
-              confirmPendingForRow ? styles.actionAgent : styles.actionPrimary,
+              confirmPendingForRow ? styles.actionMergeConfirm : styles.actionMerge,
               (pressed || mergePendingForRow) && styles.refreshPressed,
               mergeMutation.isPending && styles.actionDisabled,
             ]}
@@ -626,14 +673,10 @@ export function PrRadar({
             <Text
               style={[
                 styles.actionText,
-                confirmPendingForRow ? styles.actionAgentText : styles.actionPrimaryText,
+                confirmPendingForRow ? styles.actionMergeConfirmText : styles.actionMergeText,
               ]}
             >
-              {mergePendingForRow
-                ? "Merging…"
-                : confirmPendingForRow
-                  ? "Tap to confirm merge"
-                  : "Merge"}
+              {mergePendingForRow ? "Merging…" : confirmPendingForRow ? "Confirm merge" : "Merge"}
             </Text>
           </Pressable>
         ) : null}
@@ -667,13 +710,9 @@ export function PrRadar({
           accessibilityRole="link"
           accessibilityLabel={`Open pull request ${item.repository} ${item.number ?? ""}`}
           onPress={() => void openPr(item)}
-          style={({ pressed }) => [
-            styles.action,
-            styles.actionPrimary,
-            pressed && styles.refreshPressed,
-          ]}
+          style={({ pressed }) => [styles.action, pressed && styles.refreshPressed]}
         >
-          <Text style={[styles.actionText, styles.actionPrimaryText]}>Open PR</Text>
+          <Text style={styles.actionText}>Open PR</Text>
         </Pressable>
       </View>
     );
@@ -688,9 +727,11 @@ export function PrRadar({
               {item.number ? ` #${item.number}` : ""}
             </Text>
             <Text style={styles.badge}>{ownershipLabel}</Text>
-            {item.isDraft ? <Text style={styles.badge}>DRAFT</Text> : null}
+            {item.isDraft ? <Text style={[styles.badge, styles.badgeWarning]}>DRAFT</Text> : null}
             {item.authorKind === "bot" ? <Text style={styles.badge}>BOT</Text> : null}
-            {item.isSecurity ? <Text style={styles.badge}>SECURITY</Text> : null}
+            {item.isSecurity ? (
+              <Text style={[styles.badge, styles.badgeDanger]}>SECURITY</Text>
+            ) : null}
             {isStale ? <Text style={styles.badge}>STALE</Text> : null}
           </View>
           <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
@@ -698,7 +739,7 @@ export function PrRadar({
           </Text>
           <View style={styles.reasonLine}>
             <View style={[styles.reasonDot, { backgroundColor: color }]} />
-            <Text style={styles.reason}>{item.reason}</Text>
+            <Text style={[styles.reason, { color }]}>{item.reason}</Text>
           </View>
           <Text style={styles.metadata} numberOfLines={1} ellipsizeMode="middle">
             {checkSummary(item)}
@@ -734,14 +775,34 @@ export function PrRadar({
           : selected
             ? `No pull requests are ${BUCKET_TITLES[selected].toLowerCase()}.`
             : "No open pull requests are visible to GitHub or linked to a Paseo workspace.";
-  const summaryMetrics = [
-    { label: "Action now", value: counts["needs-you"] },
-    { label: "Ready", value: counts.ready },
+  const summaryMetrics: { label: string; value: number; color?: string }[] = [
+    {
+      label: "Action now",
+      value: counts["needs-you"],
+      color: counts["needs-you"] > 0 ? theme.colors.statusDanger : undefined,
+    },
+    {
+      label: "Ready",
+      value: counts.ready,
+      color: counts.ready > 0 ? theme.colors.statusSuccess : undefined,
+    },
     { label: "Handled", value: counts["being-handled"] },
     { label: "Waiting", value: counts.waiting },
     { label: "Updates", value: viewerData?.updates ?? 0 },
     { label: "Agent PRs", value: activeCount },
   ];
+  const allSelected = selected === null && !activeOnly && !savedView && !focusedPr;
+  // Lenses are secondary filters. A lens with nothing behind it is hidden unless it is the
+  // one currently applied, so the row only shows what can actually narrow the list.
+  const lenses = [
+    { key: "active" as const, title: "Active agents", count: activeCount, active: activeOnly },
+    ...(Object.keys(SAVED_VIEW_TITLES) as SavedView[]).map((view) => ({
+      key: view,
+      title: SAVED_VIEW_TITLES[view],
+      count: savedViewCounts[view],
+      active: savedView === view,
+    })),
+  ].filter(({ count, active }) => count > 0 || active);
 
   const header = (
     <View style={styles.header}>
@@ -761,7 +822,6 @@ export function PrRadar({
           <Text style={styles.refreshText}>{isFetching ? "Scanning" : "Refresh"}</Text>
         </Pressable>
       </View>
-      <Text style={styles.heroTitle}>Know what moves next.</Text>
       <Text style={styles.heroDetail}>{totalCopy}</Text>
       {focusedPr ? <Text style={styles.heroDetail}>Focused PR: {focusedPr}</Text> : null}
       {data?.truncated ? <Text style={styles.warningText}>{DIRECTORY_PARTIAL}</Text> : null}
@@ -769,114 +829,123 @@ export function PrRadar({
         <Text style={styles.warningText}>{LOOKUP_CAPPED}</Text>
       ) : null}
       <View accessibilityRole="summary" style={styles.summary}>
-        {summaryMetrics.map(({ label, value }) => (
+        {summaryMetrics.map(({ label, value, color: metricColor }) => (
           <View key={label} style={styles.metric}>
-            <Text style={styles.metricValue}>{value}</Text>
+            <Text style={[styles.metricValue, metricColor ? { color: metricColor } : null]}>
+              {value}
+            </Text>
             <Text style={styles.metricLabel}>{label}</Text>
           </View>
         ))}
       </View>
-      <View accessibilityRole="tablist" style={styles.chips}>
-        <Pressable
-          accessibilityRole="tab"
-          accessibilityState={{
-            selected: selected === null && !activeOnly && !savedView && !focusedPr,
-          }}
-          onPress={() => setFilter(null)}
-          style={[
-            styles.chip,
-            selected === null && !activeOnly && !savedView && !focusedPr && styles.chipActive,
-          ]}
-        >
-          <Text
-            style={[
-              styles.chipText,
-              selected === null && !activeOnly && !savedView && !focusedPr && styles.chipTextActive,
-            ]}
-          >
-            All {rows.length}
-          </Text>
-        </Pressable>
-        {BUCKETS.map((bucket) => (
+      <View style={styles.filters}>
+        <View accessibilityRole="tablist" style={styles.chips}>
           <Pressable
             accessibilityRole="tab"
-            accessibilityState={{ selected: selected === bucket }}
-            key={bucket}
-            onPress={() => setFilter(bucket)}
-            style={[styles.chip, selected === bucket && styles.chipActive]}
+            accessibilityState={{ selected: allSelected }}
+            onPress={() => setFilter(null)}
+            style={[styles.chip, allSelected && styles.chipActive]}
           >
-            <Text style={[styles.chipText, selected === bucket && styles.chipTextActive]}>
-              {BUCKET_TITLES[bucket]} {counts[bucket]}
+            <Text style={[styles.chipText, allSelected && styles.chipTextActive]}>
+              All {rows.length}
             </Text>
           </Pressable>
-        ))}
-        <Pressable
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeOnly }}
-          onPress={() => setFilter("active")}
-          style={[styles.chip, activeOnly && styles.chipActive]}
-        >
-          <Text style={[styles.chipText, activeOnly && styles.chipTextActive]}>
-            Active agents {activeCount}
-          </Text>
-        </Pressable>
-        {(Object.keys(SAVED_VIEW_TITLES) as SavedView[]).map((view) => (
-          <Pressable
-            accessibilityRole="tab"
-            accessibilityState={{ selected: savedView === view }}
-            key={view}
-            onPress={() => setFilter(view)}
-            style={[styles.chip, savedView === view && styles.chipActive]}
-          >
-            <Text style={[styles.chipText, savedView === view && styles.chipTextActive]}>
-              {SAVED_VIEW_TITLES[view]} {savedViewCounts[view]}
-            </Text>
-          </Pressable>
-        ))}
-        {([7, 30, 90] as const).map((days) => (
+          {BUCKETS.map((bucket) => {
+            const active = selected === bucket;
+            const tint = bucketColor(bucket, theme.colors);
+            return (
+              <Pressable
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                key={bucket}
+                onPress={() => setFilter(bucket)}
+                style={[
+                  styles.chip,
+                  active && { backgroundColor: `${tint}26`, borderColor: tint },
+                ]}
+              >
+                <Text style={[styles.chipText, active && { color: tint }]}>
+                  {BUCKET_TITLES[bucket]} {counts[bucket]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {lenses.length > 0 ? (
+          <View accessibilityRole="tablist" style={styles.chips}>
+            {lenses.map(({ key, title, count, active }) => (
+              <Pressable
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                key={key}
+                onPress={() => setFilter(key)}
+                style={[styles.lensChip, active && styles.lensChipActive]}
+              >
+                <Text style={[styles.lensChipText, active && styles.lensChipTextActive]}>
+                  {title} {count}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        <View style={styles.searchRow}>
+          <TextInput
+            accessibilityLabel="Filter pull requests"
+            autoCapitalize="none"
+            autoCorrect={false}
+            onChangeText={setSearch}
+            placeholder="Filter by PR, branch, workspace, or agent"
+            placeholderTextColor={theme.colors.foregroundMuted}
+            style={styles.search}
+            value={search}
+          />
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ selected: windowDays === days }}
-            key={days}
-            onPress={() => setWindowDays(days)}
-            style={[styles.chip, windowDays === days && styles.chipActive]}
+            accessibilityLabel={`Activity window: ${windowDays} days. Tap to change.`}
+            onPress={() => setWindowDays(cycleWindowDays(windowDays))}
+            style={({ pressed }) => [styles.setting, pressed && styles.refreshPressed]}
           >
-            <Text style={[styles.chipText, windowDays === days && styles.chipTextActive]}>
-              {days}d
-            </Text>
+            <Text style={styles.settingText}>{windowDays}d</Text>
           </Pressable>
-        ))}
-      </View>
-      <View
-        accessibilityRole="radiogroup"
-        accessibilityLabel="Sort pull requests"
-        style={styles.chips}
-      >
-        <Text style={[styles.chipText, { alignSelf: "center" }]}>Sort</Text>
-        {SORT_KEYS.map((key) => (
           <Pressable
-            accessibilityRole="radio"
-            accessibilityState={{ checked: sortKey === key }}
-            key={key}
-            onPress={() => setSortKey(key)}
-            style={[styles.chip, sortKey === key && styles.chipActive]}
+            accessibilityRole="button"
+            accessibilityLabel={`Sort: ${SORT_TITLES[sortKey]}. Tap to change.`}
+            accessibilityState={{ expanded: sortOpen }}
+            onPress={() => setSortOpen((open) => !open)}
+            style={({ pressed }) => [
+              styles.setting,
+              sortOpen && styles.settingOpen,
+              pressed && styles.refreshPressed,
+            ]}
           >
-            <Text style={[styles.chipText, sortKey === key && styles.chipTextActive]}>
-              {SORT_TITLES[key]}
-            </Text>
+            <Text style={styles.settingText}>{SORT_TITLES[sortKey]} ▾</Text>
           </Pressable>
-        ))}
+        </View>
+        {sortOpen ? (
+          <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Sort pull requests"
+            style={styles.chips}
+          >
+            {SORT_KEYS.map((key) => (
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ checked: sortKey === key }}
+                key={key}
+                onPress={() => {
+                  setSortKey(key);
+                  setSortOpen(false);
+                }}
+                style={[styles.chip, sortKey === key && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, sortKey === key && styles.chipTextActive]}>
+                  {SORT_TITLES[key]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       </View>
-      <TextInput
-        accessibilityLabel="Filter pull requests"
-        autoCapitalize="none"
-        autoCorrect={false}
-        onChangeText={setSearch}
-        placeholder="Filter by PR, branch, workspace, or agent"
-        placeholderTextColor={theme.colors.foregroundMuted}
-        style={styles.search}
-        value={search}
-      />
       {viewerData ? (
         <View style={{ gap: 7 }}>
           <Text style={styles.heroDetail}>
