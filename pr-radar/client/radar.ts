@@ -570,6 +570,16 @@ export function isMergeable(row: RadarRow): boolean {
   return row.ownership === "mine" && row.bucket === "ready" && !row.isDraft && row.number !== null;
 }
 
+export const WINDOW_DAYS = [7, 30, 90] as const;
+export type WindowDays = (typeof WINDOW_DAYS)[number];
+
+/** Next value for the tap-to-cycle window pill. Unknown input resets to the 30-day default. */
+export function cycleWindowDays(current: number): WindowDays {
+  const index = WINDOW_DAYS.indexOf(current as WindowDays);
+  if (index === -1) return 30;
+  return WINDOW_DAYS[(index + 1) % WINDOW_DAYS.length];
+}
+
 export const SORT_KEYS = ["mergeable", "attention", "recent", "oldest", "repository"] as const;
 export type SortKey = (typeof SORT_KEYS)[number];
 

@@ -8,6 +8,7 @@ import {
   buildRadarSnapshot,
   checkSummary,
   classifyRow,
+  cycleWindowDays,
   formatAge,
   hasActiveAgent,
   isMergeable,
@@ -1074,6 +1075,16 @@ describe("radar snapshot", () => {
 });
 
 describe("display helpers", () => {
+  test("cycleWindowDays steps 7 → 30 → 90 and wraps", () => {
+    expect(cycleWindowDays(7)).toBe(30);
+    expect(cycleWindowDays(30)).toBe(90);
+    expect(cycleWindowDays(90)).toBe(7);
+  });
+
+  test("cycleWindowDays recovers from an unknown value", () => {
+    expect(cycleWindowDays(14)).toBe(30);
+  });
+
   test("searches delivery and ownership fields", () => {
     const value = row();
     expect(matchesRow(value, "checkout")).toBe(true);
