@@ -2,7 +2,15 @@ import { openExternalUrl, type PluginSurfaceProps, useRpc } from "@getpaseo/plug
 import { copyText } from "@getpaseo/plugin/client/react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import {
   acknowledgeViewerScope,
   markPullRequestReady,
@@ -408,6 +416,9 @@ export function PrRadar({
       },
       filters: { gap: 6 },
       chips: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: 6 },
+      // Filter chips stay on one line and scroll sideways instead of wrapping.
+      chipScroller: { flexGrow: 0 },
+      chipRow: { flexDirection: "row" as const, gap: 6, paddingRight: 6 },
       chip: {
         minHeight: 28,
         justifyContent: "center" as const,
@@ -882,7 +893,13 @@ export function PrRadar({
         ))}
       </View>
       <View style={styles.filters}>
-        <View accessibilityRole="tablist" style={styles.chips}>
+        <ScrollView
+          accessibilityRole="tablist"
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipScroller}
+          contentContainerStyle={styles.chipRow}
+        >
           <Pressable
             accessibilityRole="tab"
             accessibilityState={{ selected: allSelected }}
@@ -910,9 +927,15 @@ export function PrRadar({
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
         {lenses.length > 0 ? (
-          <View accessibilityRole="tablist" style={styles.chips}>
+          <ScrollView
+            accessibilityRole="tablist"
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.chipScroller}
+            contentContainerStyle={styles.chipRow}
+          >
             {lenses.map(({ key, title, count, active }) => (
               <Pressable
                 accessibilityRole="tab"
@@ -926,7 +949,7 @@ export function PrRadar({
                 </Text>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
         ) : null}
         <View style={styles.searchRow}>
           <TextInput
