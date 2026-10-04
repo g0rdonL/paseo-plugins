@@ -859,10 +859,7 @@ export function PrRadar({
                 accessibilityState={{ selected: active }}
                 key={bucket}
                 onPress={() => setFilter(bucket)}
-                style={[
-                  styles.chip,
-                  active && { backgroundColor: `${tint}26`, borderColor: tint },
-                ]}
+                style={[styles.chip, active && { backgroundColor: `${tint}26`, borderColor: tint }]}
               >
                 <Text style={[styles.chipText, active && { color: tint }]}>
                   {BUCKET_TITLES[bucket]} {counts[bucket]}
