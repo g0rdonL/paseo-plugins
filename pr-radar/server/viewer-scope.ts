@@ -421,6 +421,30 @@ function detectChanges(previous: StoredItem | undefined, item: GitHubInboxItem):
   return [...changes];
 }
 
+const TRANSITION = /^(.+?): (.+) → (.+)$/;
+
+/**
+ * Folds newly detected changes into the pending ones. A field that flips back and forth between
+ * refreshes ("Checks: success → pending", then "pending → success") is reported once as its net
+ * change, and dropped entirely when it ended where it started.
+ */
+export function mergeChanges(pending: string[], detected: string[]): string[] {
+  const merged: string[] = [];
+  for (const change of [...pending, ...detected]) {
+    const next = TRANSITION.exec(change);
+    const index = next ? merged.findIndex((entry) => TRANSITION.exec(entry)?.[1] === next[1]) : -1;
+    if (!next || index === -1) {
+      if (!merged.includes(change)) merged.push(change);
+      continue;
+    }
+    const [, label, , to] = next;
+    const from = TRANSITION.exec(merged[index])?.[2];
+    if (from === to) merged.splice(index, 1);
+    else merged[index] = `${label}: ${from} → ${to}`;
+  }
+  return merged;
+}
+
 type ViewerScopeOutput = z.input<typeof viewerScope.output>;
 
 /** Everything one GitHub refresh learns for a window; independent of the URLs a client asks about. */
@@ -488,7 +512,7 @@ async function fetchSnapshot(windowDays: number): Promise<Snapshot> {
       const prior = previous.items[item.id];
       const detected =
         initialized && (!prior || enrichment.states.has(item.id)) ? detectChanges(prior, item) : [];
-      item.changes = [...new Set([...(previous.pendingChanges[item.id] ?? []), ...detected])];
+      item.changes = mergeChanges(previous.pendingChanges[item.id] ?? [], detected);
       nextItems[item.id] = prior && !enrichment.states.has(item.id) ? prior : storedItem(item);
       if (item.changes.length > 0) nextPending[item.id] = item.changes;
     }
