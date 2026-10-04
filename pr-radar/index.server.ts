@@ -1,6 +1,10 @@
 import type { PluginServerContext } from "@getpaseo/plugin/server";
 import { performMarkReady, performMerge } from "./server/merge";
-import { acknowledgeViewerUpdates, resolveViewerScope } from "./server/viewer-scope";
+import {
+  acknowledgeViewerUpdates,
+  resolveViewerScope,
+  startBackgroundRefresh,
+} from "./server/viewer-scope";
 import {
   acknowledgeViewerScope,
   markPullRequestReady,
@@ -13,5 +17,7 @@ export default function contribute(server: PluginServerContext) {
   server.handle(acknowledgeViewerScope, acknowledgeViewerUpdates);
   server.handle(mergePullRequest, performMerge);
   server.handle(markPullRequestReady, performMarkReady);
-  return () => {};
+  // Keep GitHub data warm so opening the radar never waits on gh.
+  const stop = startBackgroundRefresh();
+  return () => stop();
 }

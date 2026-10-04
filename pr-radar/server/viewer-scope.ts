@@ -362,11 +362,31 @@ async function readState(): Promise<StoredState> {
   return { version: 3, windows: {} };
 }
 
+let writeSequence = 0;
+
 async function writeState(state: StoredState): Promise<void> {
   await mkdir(dirname(statePath), { recursive: true });
-  const temporaryPath = `${statePath}.${process.pid}.tmp`;
+  // Unique per write: overlapping writes must not rename each other's temp file away.
+  const temporaryPath = `${statePath}.${process.pid}.${++writeSequence}.tmp`;
   await writeFile(temporaryPath, `${JSON.stringify(state)}\n`, { mode: 0o600 });
   await rename(temporaryPath, statePath);
+}
+
+let stateQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Serialised read-modify-write of the state file. A refresh takes seconds; without this an
+ * acknowledgement made meanwhile would be overwritten by the refresh's stale copy.
+ */
+function updateState<T>(change: (state: StoredState) => T): Promise<T> {
+  const run = stateQueue.then(async () => {
+    const state = await readState();
+    const result = change(state);
+    await writeState(state);
+    return result;
+  });
+  stateQueue = run.catch(() => undefined);
+  return run;
 }
 
 function storedItem(item: GitHubInboxItem): StoredItem {
@@ -400,51 +420,65 @@ function detectChanges(previous: StoredItem | undefined, item: GitHubInboxItem):
   return [...changes];
 }
 
-export async function resolveViewerScope({
-  urls,
-  windowDays,
-}: z.output<typeof viewerScope.input>): Promise<z.input<typeof viewerScope.output>> {
-  try {
-    const viewer = await viewerLogin();
-    const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1_000)
-      .toISOString()
-      .slice(0, 10);
-    const [
-      authored,
-      reviewRequested,
-      assigned,
-      mentioned,
-      authoredScope,
-      reviewRequestedScope,
-      assignedScope,
-      mentionedScope,
-      ownedRepos,
-      stored,
-    ] = await Promise.all([
-      searchPullRequests("author", viewer, since),
-      searchPullRequests("review-requested", viewer, since),
-      searchPullRequests("assignee", viewer, since),
-      searchPullRequests("mentions", viewer, since),
-      searchScopeUrls("author"),
-      searchScopeUrls("review-requested"),
-      searchScopeUrls("assignee"),
-      searchScopeUrls("mentions"),
-      searchOwnedReposPullRequests(viewer),
-      readState(),
-    ]);
-    // Merge priority: author > assignee > reviewer > mention > owner (most "owning" role wins on overlap).
-    const records = new Map<string, { record: SearchRecord; role: GitHubInboxItem["role"] }>();
-    for (const record of ownedRepos) records.set(record.id, { record, role: "owner" });
-    for (const record of mentioned) records.set(record.id, { record, role: "mention" });
-    for (const record of reviewRequested) records.set(record.id, { record, role: "reviewer" });
-    for (const record of assigned) records.set(record.id, { record, role: "assignee" });
-    for (const record of authored) records.set(record.id, { record, role: "author" });
-    const enrichment = await enrich([...records.keys()]);
-    const inboxItems = [...records.values()].map(({ record, role }) =>
-      toInboxItem(record, role, enrichment.states.get(record.id)),
-    );
+type ViewerScopeOutput = z.input<typeof viewerScope.output>;
 
-    const key = String(windowDays);
+/** Everything one GitHub refresh learns for a window; independent of the URLs a client asks about. */
+interface Snapshot {
+  viewer: string;
+  authored: SearchRecord[];
+  reviewRequested: SearchRecord[];
+  assigned: SearchRecord[];
+  mentioned: SearchRecord[];
+  authoredScope: string[];
+  reviewRequestedScope: string[];
+  assignedScope: string[];
+  mentionedScope: string[];
+  ownedRepos: SearchRecord[];
+  inboxItems: GitHubInboxItem[];
+  enrichmentFailures: number;
+  acknowledgedAt: string | null;
+}
+
+/** The expensive part: ~5 s of gh searches, a per-repo sweep, and GraphQL enrichment. */
+async function fetchSnapshot(windowDays: number): Promise<Snapshot> {
+  const viewer = await viewerLogin();
+  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1_000).toISOString().slice(0, 10);
+  const [
+    authored,
+    reviewRequested,
+    assigned,
+    mentioned,
+    authoredScope,
+    reviewRequestedScope,
+    assignedScope,
+    mentionedScope,
+    ownedRepos,
+  ] = await Promise.all([
+    searchPullRequests("author", viewer, since),
+    searchPullRequests("review-requested", viewer, since),
+    searchPullRequests("assignee", viewer, since),
+    searchPullRequests("mentions", viewer, since),
+    searchScopeUrls("author"),
+    searchScopeUrls("review-requested"),
+    searchScopeUrls("assignee"),
+    searchScopeUrls("mentions"),
+    searchOwnedReposPullRequests(viewer),
+  ]);
+  // Merge priority: author > assignee > reviewer > mention > owner (most "owning" role wins on overlap).
+  const records = new Map<string, { record: SearchRecord; role: GitHubInboxItem["role"] }>();
+  for (const record of ownedRepos) records.set(record.id, { record, role: "owner" });
+  for (const record of mentioned) records.set(record.id, { record, role: "mention" });
+  for (const record of reviewRequested) records.set(record.id, { record, role: "reviewer" });
+  for (const record of assigned) records.set(record.id, { record, role: "assignee" });
+  for (const record of authored) records.set(record.id, { record, role: "author" });
+  const enrichment = await enrich([...records.keys()]);
+  const inboxItems = [...records.values()].map(({ record, role }) =>
+    toInboxItem(record, role, enrichment.states.get(record.id)),
+  );
+
+  // Change tracking reads the state only now, after the slow GitHub work, inside the queue.
+  const key = String(windowDays);
+  const acknowledgedAt = await updateState((stored) => {
     const previous = stored.windows[key] ?? { items: {}, pendingChanges: {}, acknowledgedAt: null };
     const initialized = Object.keys(previous.items).length > 0;
     const nextItems: Record<string, StoredItem> = {};
@@ -462,65 +496,162 @@ export async function resolveViewerScope({
       pendingChanges: nextPending,
       acknowledgedAt: previous.acknowledgedAt,
     };
-    await writeState(stored);
+    return previous.acknowledgedAt;
+  });
 
-    const requestedUrls = new Set(urls.map((url) => url.toLowerCase()));
-    const authoredUrls = new Set([
-      ...authored.map(({ url }) => url),
-      ...authoredScope.filter((url) => requestedUrls.has(url.toLowerCase())),
-    ]);
-    const reviewRequestedUrls = new Set([
-      ...reviewRequested.map(({ url }) => url),
-      ...reviewRequestedScope.filter((url) => requestedUrls.has(url.toLowerCase())),
-    ]);
-    const assigneeUrls = new Set([
-      ...assigned.map(({ url }) => url),
-      ...assignedScope.filter((url) => requestedUrls.has(url.toLowerCase())),
-    ]);
-    const mentionedUrls = new Set([
-      ...mentioned.map(({ url }) => url),
-      ...mentionedScope.filter((url) => requestedUrls.has(url.toLowerCase())),
-    ]);
-    const ownedUrls = new Set([...ownedRepos.map(({ url }) => url), ...requestedUrls]);
-    const coverageNote =
-      enrichment.failures > 0
-        ? `${enrichment.failures} GitHub detail request${enrichment.failures === 1 ? "" : "s"} failed; affected PRs use conservative states.`
-        : `Open PRs where you are author, assignee, reviewer, mentioned, or in a repository you own. Organization SSO restrictions may omit results.`;
-    return {
-      viewer,
-      authoredUrls: [...authoredUrls],
-      reviewRequestedUrls: [...reviewRequestedUrls],
-      assigneeUrls: [...assigneeUrls],
-      mentionedUrls: [...mentionedUrls],
-      ownedUrls: [...ownedUrls],
-      inboxItems,
-      truncated:
-        authored.length === SEARCH_LIMIT ||
-        reviewRequested.length === SEARCH_LIMIT ||
-        assigned.length === SEARCH_LIMIT ||
-        mentioned.length === SEARCH_LIMIT,
-      coverageNote,
-      updates: inboxItems.filter(({ changes }) => changes.length > 0).length,
-      acknowledgedAt: previous.acknowledgedAt,
-      error: null,
-    };
+  return {
+    viewer,
+    authored,
+    reviewRequested,
+    assigned,
+    mentioned,
+    authoredScope,
+    reviewRequestedScope,
+    assignedScope,
+    mentionedScope,
+    ownedRepos,
+    inboxItems,
+    enrichmentFailures: enrichment.failures,
+    acknowledgedAt,
+  };
+}
+
+/** The cheap part: shape a snapshot for the URLs this client knows about. */
+export function projectSnapshot(snapshot: Snapshot, urls: string[]): ViewerScopeOutput {
+  const requestedUrls = new Set(urls.map((url) => url.toLowerCase()));
+  const withScope = (direct: SearchRecord[], scope: string[]) => [
+    ...new Set([
+      ...direct.map(({ url }) => url),
+      ...scope.filter((url) => requestedUrls.has(url.toLowerCase())),
+    ]),
+  ];
+  const coverageNote =
+    snapshot.enrichmentFailures > 0
+      ? `${snapshot.enrichmentFailures} GitHub detail request${snapshot.enrichmentFailures === 1 ? "" : "s"} failed; affected PRs use conservative states.`
+      : `Open PRs where you are author, assignee, reviewer, mentioned, or in a repository you own. Organization SSO restrictions may omit results.`;
+  return {
+    viewer: snapshot.viewer,
+    authoredUrls: withScope(snapshot.authored, snapshot.authoredScope),
+    reviewRequestedUrls: withScope(snapshot.reviewRequested, snapshot.reviewRequestedScope),
+    assigneeUrls: withScope(snapshot.assigned, snapshot.assignedScope),
+    mentionedUrls: withScope(snapshot.mentioned, snapshot.mentionedScope),
+    ownedUrls: [...new Set([...snapshot.ownedRepos.map(({ url }) => url), ...requestedUrls])],
+    inboxItems: snapshot.inboxItems,
+    truncated:
+      snapshot.authored.length === SEARCH_LIMIT ||
+      snapshot.reviewRequested.length === SEARCH_LIMIT ||
+      snapshot.assigned.length === SEARCH_LIMIT ||
+      snapshot.mentioned.length === SEARCH_LIMIT,
+    coverageNote,
+    updates: snapshot.inboxItems.filter(({ changes }) => changes.length > 0).length,
+    acknowledgedAt: snapshot.acknowledgedAt,
+    error: null,
+  };
+}
+
+function errorOutput(error: unknown): ViewerScopeOutput {
+  return {
+    viewer: null,
+    authoredUrls: [],
+    reviewRequestedUrls: [],
+    assigneeUrls: [],
+    mentionedUrls: [],
+    ownedUrls: [],
+    inboxItems: [],
+    truncated: false,
+    coverageNote: "GitHub inbox data is unavailable.",
+    updates: 0,
+    acknowledgedAt: null,
+    error: error instanceof Error ? error.message : "GitHub viewer scope is unavailable.",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Background cache. The plugin's server process is long-lived, so it keeps the last snapshot per
+// window and refreshes it on a timer; client requests are answered from memory.
+// ---------------------------------------------------------------------------
+
+export const BACKGROUND_INTERVAL_MS = 2 * 60_000;
+/** A request older than this triggers a refresh in the background (still answered from cache). */
+export const STALE_AFTER_MS = 60_000;
+/** Windows nobody has asked about for this long stop being refreshed. */
+const WINDOW_IDLE_MS = 30 * 60_000;
+const DEFAULT_WINDOW_DAYS = 30;
+
+const snapshots = new Map<number, { snapshot: Snapshot; at: number }>();
+const inflight = new Map<number, Promise<Snapshot>>();
+const lastRequested = new Map<number, number>([[DEFAULT_WINDOW_DAYS, Date.now()]]);
+
+/** Single-flight refresh: concurrent callers share one GitHub sweep. */
+function refreshWindow(windowDays: number): Promise<Snapshot> {
+  const running = inflight.get(windowDays);
+  if (running) return running;
+  const started = Date.now();
+  const promise = fetchSnapshot(windowDays)
+    .then((snapshot) => {
+      snapshots.set(windowDays, { snapshot, at: Date.now() });
+      console.log(
+        `PR Radar: refreshed ${windowDays}d window in ${((Date.now() - started) / 1000).toFixed(1)}s (${snapshot.inboxItems.length} PRs)`,
+      );
+      return snapshot;
+    })
+    .finally(() => inflight.delete(windowDays));
+  inflight.set(windowDays, promise);
+  return promise;
+}
+
+function refreshInBackground(windowDays: number): void {
+  refreshWindow(windowDays).catch((error) => {
+    // Keep serving the last good snapshot.
+    console.error(`PR Radar: background refresh of ${windowDays}d window failed`, error);
+  });
+}
+
+/** Starts the refresh timer; returns a stop function for the plugin's cleanup. */
+export function startBackgroundRefresh(intervalMs = BACKGROUND_INTERVAL_MS): () => void {
+  const tick = () => {
+    const now = Date.now();
+    for (const [windowDays, requestedAt] of lastRequested) {
+      if (windowDays !== DEFAULT_WINDOW_DAYS && now - requestedAt > WINDOW_IDLE_MS) {
+        lastRequested.delete(windowDays);
+        continue;
+      }
+      refreshInBackground(windowDays);
+    }
+  };
+  tick();
+  const timer = setInterval(tick, intervalMs);
+  timer.unref?.();
+  return () => clearInterval(timer);
+}
+
+export async function resolveViewerScope({
+  urls,
+  windowDays,
+}: z.output<typeof viewerScope.input>): Promise<ViewerScopeOutput> {
+  lastRequested.set(windowDays, Date.now());
+  const cached = snapshots.get(windowDays);
+  if (cached) {
+    if (Date.now() - cached.at > STALE_AFTER_MS) refreshInBackground(windowDays);
+    return projectSnapshot(cached.snapshot, urls);
+  }
+  // First request for this window (or the startup refresh is still running): wait once.
+  try {
+    return projectSnapshot(await refreshWindow(windowDays), urls);
   } catch (error) {
     console.error("PR Radar GitHub inbox refresh failed", error);
-    return {
-      viewer: null,
-      authoredUrls: [],
-      reviewRequestedUrls: [],
-      assigneeUrls: [],
-      mentionedUrls: [],
-      ownedUrls: [],
-      inboxItems: [],
-      truncated: false,
-      coverageNote: "GitHub inbox data is unavailable.",
-      updates: 0,
-      acknowledgedAt: null,
-      error: error instanceof Error ? error.message : "GitHub viewer scope is unavailable.",
-    };
+    return errorOutput(error);
   }
+}
+
+/** Test seam: waits for running refreshes so tests do not bleed into each other. */
+export async function resetViewerScopeCache(): Promise<void> {
+  await Promise.allSettled([...inflight.values()]);
+  await stateQueue;
+  snapshots.clear();
+  inflight.clear();
+  lastRequested.clear();
+  lastRequested.set(DEFAULT_WINDOW_DAYS, Date.now());
 }
 
 export async function acknowledgeViewerUpdates({
@@ -528,12 +659,21 @@ export async function acknowledgeViewerUpdates({
 }: z.output<typeof acknowledgeViewerScope.input>): Promise<
   z.input<typeof acknowledgeViewerScope.output>
 > {
-  const state = await readState();
   const key = String(windowDays);
   const acknowledgedAt = new Date().toISOString();
-  const current = state.windows[key] ?? { items: {}, pendingChanges: {}, acknowledgedAt: null };
-  state.windows[key] = { ...current, pendingChanges: {}, acknowledgedAt };
-  await writeState(state);
+  await updateState((state) => {
+    const current = state.windows[key] ?? { items: {}, pendingChanges: {}, acknowledgedAt: null };
+    state.windows[key] = { ...current, pendingChanges: {}, acknowledgedAt };
+  });
+  // Keep the cached snapshot in step so the badge clears without waiting for a refresh.
+  const cached = snapshots.get(windowDays);
+  if (cached) {
+    cached.snapshot = {
+      ...cached.snapshot,
+      acknowledgedAt,
+      inboxItems: cached.snapshot.inboxItems.map((item) => ({ ...item, changes: [] })),
+    };
+  }
   return { acknowledgedAt };
 }
 
@@ -548,5 +688,9 @@ export function viewerLoginPublic(): Promise<string> {
 export async function invalidateInboxState(): Promise<void> {
   // Force the next resolveViewerScope to re-detect by clearing stored state.
   // Used after merge/ready actions so the radar reflects the new PR status.
-  await writeState({ version: 3, windows: {} });
+  await updateState((state) => {
+    state.windows = {};
+  });
+  // The merged/readied PR changed state: refresh now rather than on the next tick.
+  for (const windowDays of snapshots.keys()) refreshInBackground(windowDays);
 }

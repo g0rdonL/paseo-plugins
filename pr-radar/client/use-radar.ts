@@ -86,8 +86,11 @@ export function useRadar(hostId: string, windowDays = 30, live = true) {
     queryKey: ["pr-radar-viewer-scope", hostId, scopeUrls, windowDays],
     queryFn: () => resolveViewerScope({ urls: scopeUrls, windowDays }),
     enabled: Boolean(directory.data),
-    staleTime: 5 * 60_000,
-    refetchInterval: live ? 5 * 60_000 : false,
+    // The server answers from its background cache, so polling is cheap; this only picks up
+    // what the server's own refresh loop (every 2 min) has already fetched.
+    staleTime: 30_000,
+    refetchInterval: live ? 60_000 : false,
+    placeholderData: (previous) => previous,
   });
   useEffect(() => {
     if (!live) return;
