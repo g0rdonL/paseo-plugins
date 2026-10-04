@@ -785,8 +785,8 @@ export function PrRadar({
           </Text>
           <View style={styles.reasonLine}>
             <View style={[styles.reasonDot, { backgroundColor: color }]} />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
-              <Text style={[styles.reason, { color }]}>{item.reason}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} scrollEventThrottle={16}>
+              <Text style={[styles.reason, { color }, { flexShrink: 0 }]}>{item.reason}</Text>
             </ScrollView>
           </View>
           <Text style={styles.metadata} numberOfLines={1} ellipsizeMode="middle">
