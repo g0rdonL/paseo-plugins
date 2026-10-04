@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import type { z } from "zod";
 import type { acknowledgeViewerScope, GitHubInboxItem, viewerScope } from "../shared/viewer-scope";
+import { publishLauncherInbox } from "./launcher-inbox";
 
 const execFileAsync = promisify(execFile);
 const SEARCH_LIMIT = 100;
@@ -590,6 +591,7 @@ function refreshWindow(windowDays: number): Promise<Snapshot> {
   const promise = fetchSnapshot(windowDays)
     .then((snapshot) => {
       snapshots.set(windowDays, { snapshot, at: Date.now() });
+      if (windowDays === DEFAULT_WINDOW_DAYS) void publishLauncherInbox(snapshot.inboxItems);
       console.log(
         `PR Radar: refreshed ${windowDays}d window in ${((Date.now() - started) / 1000).toFixed(1)}s (${snapshot.inboxItems.length} PRs)`,
       );
@@ -673,6 +675,7 @@ export async function acknowledgeViewerUpdates({
       acknowledgedAt,
       inboxItems: cached.snapshot.inboxItems.map((item) => ({ ...item, changes: [] })),
     };
+    if (windowDays === DEFAULT_WINDOW_DAYS) await publishLauncherInbox(cached.snapshot.inboxItems);
   }
   return { acknowledgedAt };
 }

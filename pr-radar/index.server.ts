@@ -1,4 +1,5 @@
 import type { PluginServerContext } from "@getpaseo/plugin/server";
+import { clearLauncherInbox } from "./server/launcher-inbox";
 import { performMarkReady, performMerge } from "./server/merge";
 import {
   acknowledgeViewerUpdates,
@@ -19,5 +20,8 @@ export default function contribute(server: PluginServerContext) {
   server.handle(markPullRequestReady, performMarkReady);
   // Keep GitHub data warm so opening the radar never waits on gh.
   const stop = startBackgroundRefresh();
-  return () => stop();
+  return async () => {
+    stop();
+    await clearLauncherInbox();
+  };
 }
