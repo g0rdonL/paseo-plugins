@@ -22,6 +22,31 @@ export default function contribute(client: PluginClientContext) {
       surface: "radar",
     });
   }
+  // Also available as a workspace tab or in the right-hand Explorer pane (its + menu, or ⌘K).
+  // Older hosts in the supported range may lack workspace panels, so feature-check first.
+  const removePanel: (() => void)[] = [];
+  if (typeof client.addWorkspacePanel === "function") {
+    removePanel.push(
+      client.addWorkspacePanel({
+        id: "radar",
+        title: "PR Radar",
+        icon: "GitPullRequest",
+        context: "workspace",
+        locations: ["workspace", "explorer"],
+        Component: PrRadar,
+      }),
+      client.addCommandCenterItem({
+        id: "open-radar-right",
+        title: "Open PR Radar in right panel",
+        icon: "GitPullRequest",
+        keywords: ["pull requests", "explorer", "side"],
+        context: "workspace",
+        onSelect({ openPanel }) {
+          openPanel("radar", { location: "explorer" });
+        },
+      }),
+    );
+  }
   client.addCommandCenterItem({
     id: "open-radar",
     title: "Open PR Radar",
@@ -34,5 +59,7 @@ export default function contribute(client: PluginClientContext) {
       else capabilities.openSurface("radar");
     },
   });
-  return () => {};
+  return () => {
+    for (const remove of removePanel) remove();
+  };
 }
