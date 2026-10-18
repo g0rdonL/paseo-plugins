@@ -18,6 +18,7 @@ import {
   markPullRequestReady,
   mergePullRequest,
 } from "../shared/viewer-scope";
+import { launchFromDefaultProvider, launchFromProfile, pickProfile } from "./agent-launch";
 import {
   agentActionFor,
   BUCKET_TITLES,
@@ -258,21 +259,12 @@ export function PrRadar({
       }
 
       const { config } = await paseo.config.get();
-      const profiles = config.agentProfiles ?? [];
-      const profile =
-        profiles.find((candidate) => candidate.name.toLowerCase() === "model router") ??
-        profiles[0];
-      if (!profile) {
-        throw new Error("Configure an agent profile in Paseo before starting an agent.");
-      }
-      const provider = profile.model ? `${profile.provider}/${profile.model}` : profile.provider;
+      const profile = pickProfile(config.agentProfiles ?? []);
+      const launch = profile
+        ? launchFromProfile(profile)
+        : await launchFromDefaultProvider(paseo.providers);
       const agentOptions = {
-        config: {
-          provider,
-          ...(profile.modeId ? { modeId: profile.modeId } : {}),
-          ...(profile.thinkingOptionId ? { thinkingOptionId: profile.thinkingOptionId } : {}),
-          ...(profile.featureValues ? { featureValues: profile.featureValues } : {}),
-        },
+        config: launch.config,
         title: `PR Radar: ${row.repository}#${row.number ?? "PR"}`,
         prompt,
       };
@@ -298,7 +290,7 @@ export function PrRadar({
         const target = { agentId: created.id, serverId: host.id };
         navigation.openAgent(target);
       }
-      return `Started ${profile.name} for ${row.repository}#${row.number ?? "PR"}.`;
+      return `Started ${launch.label} for ${row.repository}#${row.number ?? "PR"}.`;
     },
     onMutate: () => {
       setOpenError(null);
