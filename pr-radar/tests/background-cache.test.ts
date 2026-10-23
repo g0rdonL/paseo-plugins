@@ -231,6 +231,19 @@ describe("background cache", () => {
     errors.mockRestore();
   });
 
+  test("stopping the loop cancels a pending failure retry", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    gh.fail = true;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const stop = startBackgroundRefresh(60 * 60_000);
+    await vi.advanceTimersByTimeAsync(1_000); // the startup sweep fails and schedules a retry
+    stop();
+    const sweeps = loginCalls();
+    await vi.advanceTimersByTimeAsync(FAILURE_BACKOFF_MS[0] + 1_000);
+    expect(loginCalls()).toBe(sweeps);
+    errors.mockRestore();
+  });
+
   test("a restarted process serves the last snapshot from disk while it refreshes", async () => {
     await resolveViewerScope({ urls: [], windowDays: 30 });
     await resetViewerScopeCache({ keepDisk: true }); // a plugin reload: memory gone, disk kept

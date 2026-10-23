@@ -720,7 +720,8 @@ function recordFailure(windowDays: number, error: unknown): void {
   if (snapshots.has(windowDays) || retryTimers.has(windowDays)) return;
   const timer = setTimeout(() => {
     retryTimers.delete(windowDays);
-    refreshInBackground(windowDays);
+    // A window the loop has dropped as idle is not worth retrying.
+    if (lastRequested.has(windowDays)) refreshInBackground(windowDays);
   }, backoffFor(attempts));
   timer.unref?.();
   retryTimers.set(windowDays, timer);
@@ -785,7 +786,11 @@ export function startBackgroundRefresh(intervalMs = BACKGROUND_INTERVAL_MS): () 
   tick();
   const timer = setInterval(tick, intervalMs);
   timer.unref?.();
-  return () => clearInterval(timer);
+  return () => {
+    clearInterval(timer);
+    for (const retry of retryTimers.values()) clearTimeout(retry);
+    retryTimers.clear();
+  };
 }
 
 export async function resolveViewerScope({
