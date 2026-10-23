@@ -41,6 +41,7 @@ home.dir = mkdtempSync(join(tmpdir(), "pr-radar-cache-"));
 const {
   acknowledgeViewerUpdates,
   resolveViewerScope,
+  MAX_STALE_MS,
   resetViewerScopeCache,
   startBackgroundRefresh,
   STALE_AFTER_MS,
@@ -141,6 +142,38 @@ describe("background cache", () => {
     expect(answer.error).toBeNull();
     expect(answer.viewer).toBe("testuser");
     errors.mockRestore();
+  });
+
+  test("a snapshot too old to trust is not served: a refresh that keeps failing is reported", async () => {
+    await resolveViewerScope({ urls: [], windowDays: 30 });
+    gh.fail = true;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + MAX_STALE_MS + 1_000);
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const answer = await resolveViewerScope({ urls: [], windowDays: 30 });
+    expect(answer.viewer).toBeNull();
+    expect(answer.error).toMatch(/network down/);
+    errors.mockRestore();
+  });
+
+  test("a window asked about again after going idle waits for fresh data", async () => {
+    await resolveViewerScope({ urls: [], windowDays: 30 });
+    const before = loginCalls();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + MAX_STALE_MS + 1_000);
+    let release!: () => void;
+    gh.gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    let answered = false;
+    const pending = resolveViewerScope({ urls: [], windowDays: 30 }).then(() => {
+      answered = true;
+    });
+    await flush();
+    expect(answered).toBe(false); // old data is not served while the refresh runs
+    expect(loginCalls()).toBe(before + 1);
+    release();
+    await pending;
   });
 
   test("with nothing cached, a failure is reported", async () => {

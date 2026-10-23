@@ -486,6 +486,11 @@ function errorOutput(error: unknown): ViewerScopeOutput {
 export const BACKGROUND_INTERVAL_MS = 2 * 60_000;
 /** A request older than this triggers a refresh in the background (still answered from cache). */
 export const STALE_AFTER_MS = 60_000;
+/**
+ * A snapshot older than this is not served: a refresh that keeps failing (auth lost, rate limited)
+ * is reported instead of hiding behind old data. Entries are bounded by the 365 possible windows.
+ */
+export const MAX_STALE_MS = 3 * BACKGROUND_INTERVAL_MS;
 /** Windows nobody has asked about for this long stop being refreshed, so an unused radar costs no GitHub calls. */
 const WINDOW_IDLE_MS = 30 * 60_000;
 /** Warmed at startup so the first open of the radar does not wait on GitHub. */
@@ -544,7 +549,7 @@ export async function resolveViewerScope({
 }: z.output<typeof viewerScope.input>): Promise<ViewerScopeOutput> {
   lastRequested.set(windowDays, Date.now());
   const cached = snapshots.get(windowDays);
-  if (cached) {
+  if (cached && Date.now() - cached.at <= MAX_STALE_MS) {
     if (Date.now() - cached.at > STALE_AFTER_MS) refreshInBackground(windowDays);
     return projectSnapshot(cached.snapshot, urls);
   }

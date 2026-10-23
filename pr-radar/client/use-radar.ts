@@ -48,7 +48,6 @@ export function useRadar(hostId: string, windowDays = 30, live = true) {
     // what the server's own refresh loop (every 2 min) has already fetched.
     staleTime: 30_000,
     refetchInterval: live ? 60_000 : false,
-    placeholderData: (previous) => previous,
   });
   useEffect(() => {
     if (!live) return;
