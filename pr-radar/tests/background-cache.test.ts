@@ -65,6 +65,8 @@ describe("background cache", () => {
     gh.gate = null;
     gh.peakSearches = 0;
     vi.useRealTimers();
+    // Paseo sets PASEO_HOME for agents; keep the state file in the temp home either way.
+    vi.stubEnv("PASEO_HOME", join(home.dir, ".paseo"));
     await resetViewerScopeCache();
     gh.calls = [];
   });
