@@ -5,7 +5,13 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { acknowledgeViewerUpdates, resolveViewerScope } from "../server/viewer-scope";
 
 type GhHandler = (args: string[]) => string;
-const gh = vi.hoisted(() => ({ handler: undefined as GhHandler | undefined }));
+const gh = vi.hoisted(() => ({
+  handler: undefined as GhHandler | undefined,
+  /** Answer on a later tick so overlapping calls are observable. */
+  defer: false,
+  activeSearches: 0,
+  peakSearches: 0,
+}));
 
 vi.mock("node:child_process", () => ({
   execFile: (
@@ -14,11 +20,21 @@ vi.mock("node:child_process", () => ({
     _options: unknown,
     callback: (error: Error | null, result?: { stdout: string }) => void,
   ) => {
-    try {
-      callback(null, { stdout: gh.handler?.(args) ?? "" });
-    } catch (error) {
-      callback(error as Error);
+    const isSearch = args[0] === "search";
+    if (isSearch) {
+      gh.activeSearches += 1;
+      gh.peakSearches = Math.max(gh.peakSearches, gh.activeSearches);
     }
+    const respond = () => {
+      if (isSearch) gh.activeSearches -= 1;
+      try {
+        callback(null, { stdout: gh.handler?.(args) ?? "" });
+      } catch (error) {
+        callback(error as Error);
+      }
+    };
+    if (gh.defer) setTimeout(respond, 5);
+    else respond();
   },
 }));
 
@@ -33,6 +49,8 @@ async function temporaryDirectory(): Promise<string> {
 
 afterEach(async () => {
   gh.handler = undefined;
+  gh.defer = false;
+  gh.peakSearches = 0;
   vi.unstubAllEnvs();
   await Promise.all(temporaryDirectories.splice(0).map((d) => rm(d, { recursive: true })));
 });
@@ -144,6 +162,15 @@ describe("viewer scope inbox", () => {
     const third = await resolveViewerScope({ urls: [url], windowDays: 30 });
     expect(third.updates).toBe(0);
     expect(third.acknowledgedAt).not.toBeNull();
+  });
+
+  test("runs GitHub searches with bounded concurrency", async () => {
+    vi.stubEnv("PASEO_HOME", await temporaryDirectory());
+    gh.handler = ghFor({ checks: "SUCCESS" });
+    gh.defer = true;
+    const result = await resolveViewerScope({ urls: [], windowDays: 30 });
+    expect(result.error).toBeNull();
+    expect(gh.peakSearches).toBe(2);
   });
 
   test("uses conservative states when GitHub detail requests fail", async () => {

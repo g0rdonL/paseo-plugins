@@ -70,6 +70,30 @@ async function runGh(args: string[], timeout = COMMAND_TIMEOUT_MS): Promise<stri
   return stdout.trim();
 }
 
+/**
+ * GitHub's search API applies a secondary rate limit to concurrent requests, and one refresh
+ * issues four searches (scope searches page up to ten times each). Firing them all at once can
+ * trip it, so searches share a small queue.
+ */
+const SEARCH_CONCURRENCY = 2;
+let activeSearches = 0;
+const searchWaiters: Array<() => void> = [];
+
+async function runSearch(args: string[]): Promise<string> {
+  while (activeSearches >= SEARCH_CONCURRENCY) {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    searchWaiters.push(resolve);
+    await promise;
+  }
+  activeSearches += 1;
+  try {
+    return await runGh(args);
+  } finally {
+    activeSearches -= 1;
+    searchWaiters.shift()?.();
+  }
+}
+
 function delay(milliseconds: number): Promise<void> {
   const { promise, resolve } = Promise.withResolvers<void>();
   setTimeout(resolve, milliseconds);
@@ -110,7 +134,7 @@ async function searchPullRequests(
     "commentsCount",
     "labels",
   ].join(",");
-  const output = await runGh([
+  const output = await runSearch([
     "search",
     "prs",
     `--${filter}=${viewer}`,
@@ -126,7 +150,7 @@ async function searchPullRequests(
 }
 
 async function searchScopeUrls(filter: "author" | "review-requested"): Promise<string[]> {
-  const output = await runGh([
+  const output = await runSearch([
     "search",
     "prs",
     `--${filter}=@me`,
