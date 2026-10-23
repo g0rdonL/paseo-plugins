@@ -71,9 +71,8 @@ async function runGh(args: string[], timeout = COMMAND_TIMEOUT_MS): Promise<stri
 }
 
 /**
- * GitHub's search API applies a secondary rate limit to concurrent requests, and one refresh
- * issues four searches (scope searches page up to ten times each). Firing them all at once can
- * trip it, so searches share a small queue.
+ * One refresh issues four searches (the scope searches page up to ten times each). GitHub advises
+ * serial requests to avoid secondary rate limits, so searches share a small queue.
  */
 const SEARCH_CONCURRENCY = 2;
 let activeSearches = 0;
