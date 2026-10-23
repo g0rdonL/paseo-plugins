@@ -97,6 +97,10 @@ describe("mergeChanges", () => {
       "Checks: none → failure",
       "Review: failure → none",
     ]);
+    expect(mergeChanges(["Merge state: CLEAN → DIRTY"], ["Mergeable: DIRTY → CLEAN"])).toEqual([
+      "Merge state: CLEAN → DIRTY",
+      "Mergeable: DIRTY → CLEAN",
+    ]);
   });
 
   test("collapses a round trip already stored as two entries", () => {
