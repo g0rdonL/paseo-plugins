@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
@@ -14,9 +14,17 @@ const COMMAND_TIMEOUT_MS = 15_000;
 const MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 const SCOPE_SEARCH_LIMIT = 1000;
 
-function statePath(): string {
+function dataDirectory(): string {
   const home = process.env.PASEO_HOME ?? join(homedir(), ".paseo");
-  return join(home, "plugin-data", "pr-radar", "inbox-state.json");
+  return join(home, "plugin-data", "pr-radar");
+}
+
+function statePath(): string {
+  return join(dataDirectory(), "inbox-state.json");
+}
+
+function snapshotPath(): string {
+  return join(dataDirectory(), "snapshots.json");
 }
 
 interface SearchRecord {
@@ -393,13 +401,16 @@ async function readState(): Promise<StoredState> {
 
 let writeSequence = 0;
 
-async function writeState(state: StoredState): Promise<void> {
-  const path = statePath();
+async function writeJson(path: string, value: unknown): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   // Unique per write: overlapping writes must not rename each other's temp file away.
   const temporaryPath = `${path}.${process.pid}.${++writeSequence}.tmp`;
-  await writeFile(temporaryPath, `${JSON.stringify(state)}\n`, { mode: 0o600 });
+  await writeFile(temporaryPath, `${JSON.stringify(value)}\n`, { mode: 0o600 });
   await rename(temporaryPath, path);
+}
+
+async function writeState(state: StoredState): Promise<void> {
+  await writeJson(statePath(), state);
 }
 
 let stateQueue: Promise<unknown> = Promise.resolve();
@@ -635,6 +646,58 @@ const DEFAULT_WINDOW_DAYS = 30;
 const snapshots = new Map<number, { snapshot: Snapshot; at: number }>();
 const inflight = new Map<number, Promise<Snapshot>>();
 const lastRequested = new Map<number, number>([[DEFAULT_WINDOW_DAYS, Date.now()]]);
+// ---------------------------------------------------------------------------
+// Disk copy of the last good snapshot per window. A reload or daemon restart starts with an empty
+// memory cache; serving the disk copy while the first sweep runs keeps the inbox populated even
+// when that sweep is slow or rate limited.
+// ---------------------------------------------------------------------------
+
+/** Older disk snapshots are too stale to show; the client waits for a fresh sweep instead. */
+export const DISK_SNAPSHOT_MAX_AGE_MS = 24 * 60 * 60_000;
+
+interface StoredSnapshots {
+  version: 1;
+  windows: Record<string, { snapshot: Snapshot; at: number }>;
+}
+
+let snapshotWrites: Promise<unknown> = Promise.resolve();
+const diskChecked = new Set<number>();
+
+async function readSnapshots(): Promise<StoredSnapshots> {
+  try {
+    const stored = JSON.parse(await readFile(snapshotPath(), "utf8")) as StoredSnapshots;
+    if (stored.version === 1 && stored.windows && typeof stored.windows === "object") return stored;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.error("PR Radar ignored unreadable snapshot cache", error);
+    }
+  }
+  return { version: 1, windows: {} };
+}
+
+/** Serialised so overlapping windows do not drop each other's entries. Failures only log. */
+function persistSnapshot(windowDays: number, entry: { snapshot: Snapshot; at: number }): void {
+  snapshotWrites = snapshotWrites
+    .then(async () => {
+      const stored = await readSnapshots();
+      stored.windows[String(windowDays)] = entry;
+      await writeJson(snapshotPath(), stored);
+    })
+    .catch((error) => console.error("PR Radar could not save the snapshot cache", error));
+}
+
+/** Seeds memory from disk once per window per process; never replaces a newer memory entry. */
+async function loadSnapshotFromDisk(windowDays: number): Promise<void> {
+  if (diskChecked.has(windowDays)) return;
+  diskChecked.add(windowDays);
+  await snapshotWrites;
+  const entry = (await readSnapshots()).windows[String(windowDays)];
+  if (!entry || Date.now() - entry.at > DISK_SNAPSHOT_MAX_AGE_MS) return;
+  if (snapshots.has(windowDays)) return;
+  snapshots.set(windowDays, entry);
+  if (windowDays === DEFAULT_WINDOW_DAYS) void publishLauncherInbox(entry.snapshot.inboxItems);
+}
+
 /** Retry delays after consecutive failed sweeps; the last one repeats. */
 export const FAILURE_BACKOFF_MS = [15_000, 30_000, 60_000, 120_000];
 const failures = new Map<number, { at: number; error: unknown; attempts: number }>();
@@ -686,7 +749,9 @@ function refreshWindow(windowDays: number): Promise<Snapshot> {
       },
     )
     .then((snapshot) => {
-      snapshots.set(windowDays, { snapshot, at: Date.now() });
+      const entry = { snapshot, at: Date.now() };
+      snapshots.set(windowDays, entry);
+      persistSnapshot(windowDays, entry);
       if (windowDays === DEFAULT_WINDOW_DAYS) void publishLauncherInbox(snapshot.inboxItems);
       console.log(
         `PR Radar: refreshed ${windowDays}d window in ${((Date.now() - started) / 1000).toFixed(1)}s (${snapshot.inboxItems.length} PRs)`,
@@ -728,6 +793,7 @@ export async function resolveViewerScope({
   windowDays,
 }: z.output<typeof viewerScope.input>): Promise<ViewerScopeOutput> {
   lastRequested.set(windowDays, Date.now());
+  if (!snapshots.has(windowDays)) await loadSnapshotFromDisk(windowDays);
   const cached = snapshots.get(windowDays);
   if (cached) {
     if (Date.now() - cached.at > STALE_AFTER_MS && !inBackoff(windowDays)) {
@@ -748,9 +814,12 @@ export async function resolveViewerScope({
 }
 
 /** Test seam: waits for running refreshes so tests do not bleed into each other. */
-export async function resetViewerScopeCache(): Promise<void> {
+export async function resetViewerScopeCache({ keepDisk = false } = {}): Promise<void> {
   await Promise.allSettled([...inflight.values()]);
   await stateQueue;
+  await snapshotWrites;
+  if (!keepDisk) await rm(snapshotPath(), { force: true });
+  diskChecked.clear();
   snapshots.clear();
   inflight.clear();
   for (const windowDays of [...failures.keys(), ...retryTimers.keys()]) clearFailure(windowDays);
@@ -777,6 +846,7 @@ export async function acknowledgeViewerUpdates({
       acknowledgedAt,
       inboxItems: cached.snapshot.inboxItems.map((item) => ({ ...item, changes: [] })),
     };
+    persistSnapshot(windowDays, cached);
     if (windowDays === DEFAULT_WINDOW_DAYS) await publishLauncherInbox(cached.snapshot.inboxItems);
   }
   return { acknowledgedAt };

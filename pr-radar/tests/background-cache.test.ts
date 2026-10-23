@@ -46,6 +46,8 @@ vi.mock("node:child_process", () => ({
 }));
 
 home.dir = mkdtempSync(join(tmpdir(), "pr-radar-cache-"));
+// PASEO_HOME wins over homedir(); inside a Paseo agent it points at the live daemon's data.
+process.env.PASEO_HOME = home.dir;
 
 const {
   acknowledgeViewerUpdates,
@@ -54,6 +56,7 @@ const {
   startBackgroundRefresh,
   STALE_AFTER_MS,
   FAILURE_BACKOFF_MS,
+  DISK_SNAPSHOT_MAX_AGE_MS,
 } = await import("../server/viewer-scope");
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -225,6 +228,47 @@ describe("background cache", () => {
     vi.useRealTimers();
     const answer = await resolveViewerScope({ urls: [], windowDays: 30 });
     expect(answer.error).toBeNull();
+    errors.mockRestore();
+  });
+
+  test("a restarted process serves the last snapshot from disk while it refreshes", async () => {
+    await resolveViewerScope({ urls: [], windowDays: 30 });
+    await resetViewerScopeCache({ keepDisk: true }); // a plugin reload: memory gone, disk kept
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + STALE_AFTER_MS + 1_000);
+    gh.fail = true;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const before = loginCalls();
+    const answer = await resolveViewerScope({ urls: [], windowDays: 30 });
+    expect(answer.error).toBeNull();
+    expect(answer.viewer).toBe("g0rdonL");
+    expect(loginCalls()).toBeGreaterThan(before); // still refreshes behind the cached answer
+    await flush();
+    errors.mockRestore();
+  });
+
+  test("a snapshot on disk older than a day is not served", async () => {
+    await resolveViewerScope({ urls: [], windowDays: 30 });
+    await resetViewerScopeCache({ keepDisk: true });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + DISK_SNAPSHOT_MAX_AGE_MS + 60_000);
+    gh.fail = true;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const answer = await resolveViewerScope({ urls: [], windowDays: 30 });
+    expect(answer.viewer).toBeNull();
+    expect(answer.error).toMatch(/network down/);
+    errors.mockRestore();
+  });
+
+  test("an acknowledgement survives a restart", async () => {
+    await resolveViewerScope({ urls: [], windowDays: 30 });
+    const { acknowledgedAt } = await acknowledgeViewerUpdates({ windowDays: 30 });
+    await resetViewerScopeCache({ keepDisk: true });
+    gh.fail = true;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const answer = await resolveViewerScope({ urls: [], windowDays: 30 });
+    expect(answer.acknowledgedAt).toBe(acknowledgedAt);
+    await flush();
     errors.mockRestore();
   });
 });
