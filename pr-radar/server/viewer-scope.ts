@@ -520,7 +520,7 @@ function refreshWindow(windowDays: number): Promise<Snapshot> {
 
 function refreshInBackground(windowDays: number): void {
   refreshWindow(windowDays).catch((error) => {
-    // Keep serving the last good snapshot.
+    // Keep serving the last good snapshot until it passes MAX_STALE_MS.
     console.error(`PR Radar: background refresh of ${windowDays}d window failed`, error);
   });
 }
@@ -553,7 +553,7 @@ export async function resolveViewerScope({
     if (Date.now() - cached.at > STALE_AFTER_MS) refreshInBackground(windowDays);
     return projectSnapshot(cached.snapshot, urls);
   }
-  // First request for this window (or the startup refresh is still running): wait once.
+  // First request for this window, or its snapshot expired: wait once.
   try {
     return projectSnapshot(await refreshWindow(windowDays), urls);
   } catch (error) {

@@ -156,7 +156,7 @@ describe("background cache", () => {
     errors.mockRestore();
   });
 
-  test("a window asked about again after going idle waits for fresh data", async () => {
+  test("a window asked about again after a snapshot too old to serve waits for fresh data", async () => {
     await resolveViewerScope({ urls: [], windowDays: 30 });
     const before = loginCalls();
     vi.useFakeTimers({ toFake: ["Date"] });
