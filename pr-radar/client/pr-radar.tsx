@@ -85,7 +85,13 @@ export function PrRadar({
   const [now, setNow] = useState(() => Date.now());
   const [openError, setOpenError] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  // A fresh object per copy re-arms the reset timer; the effect cleanup cancels it on re-copy and unmount.
+  const [copied, setCopied] = useState<{ id: string } | null>(null);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(null), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
 
   const {
     paseo,
@@ -383,8 +389,9 @@ export function PrRadar({
         position: "absolute" as const,
         top: 10,
         right: 0,
+        minHeight: 28,
+        justifyContent: "center" as const,
         paddingHorizontal: 8,
-        paddingVertical: 4,
         borderRadius: 6,
       },
       copyText: { color: theme.colors.foregroundMuted, fontSize: 11, fontWeight: "600" as const },
@@ -473,8 +480,7 @@ export function PrRadar({
     setOpenError(null);
     try {
       await copyText(row.url);
-      setCopiedId(row.id);
-      setTimeout(() => setCopiedId((current) => (current === row.id ? null : current)), 1500);
+      setCopied({ id: row.id });
     } catch {
       setOpenError(`Could not copy the link for ${row.repository}#${row.number ?? "PR"}.`);
     }
@@ -610,7 +616,9 @@ export function PrRadar({
           onPress={() => void copyPrLink(item)}
           style={({ pressed }) => [styles.copyButton, pressed && styles.refreshPressed]}
         >
-          <Text style={styles.copyText}>{copiedId === item.id ? "Copied" : "Copy link"}</Text>
+          <Text style={styles.copyText} accessibilityLiveRegion="polite">
+            {copied?.id === item.id ? "Copied" : "Copy link"}
+          </Text>
         </Pressable>
       </View>
     );
