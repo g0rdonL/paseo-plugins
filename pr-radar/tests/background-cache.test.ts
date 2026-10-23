@@ -9,6 +9,9 @@ const { gh, home } = vi.hoisted(() => ({
     fail: false,
     /** Resolves pending gh calls when set; lets a test hold a refresh open. */
     gate: null as Promise<void> | null,
+    /** gh search calls currently running, and the most seen at once. */
+    activeSearches: 0,
+    peakSearches: 0,
   },
   home: { dir: "" },
 }));
@@ -26,7 +29,13 @@ vi.mock("node:child_process", () => ({
     callback: (error: Error | null, result?: { stdout: string; stderr: string }) => void,
   ) => {
     gh.calls.push(args);
+    const isSearch = args[0] === "search";
+    if (isSearch) {
+      gh.activeSearches += 1;
+      gh.peakSearches = Math.max(gh.peakSearches, gh.activeSearches);
+    }
     const respond = () => {
+      if (isSearch) gh.activeSearches -= 1;
       if (gh.fail) return callback(new Error("gh: network down"));
       const stdout = args[0] === "api" && args[1] === "user" ? "g0rdonL\n" : "[]";
       callback(null, { stdout, stderr: "" });
@@ -44,6 +53,7 @@ const {
   resetViewerScopeCache,
   startBackgroundRefresh,
   STALE_AFTER_MS,
+  FAILURE_BACKOFF_MS,
 } = await import("../server/viewer-scope");
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -53,6 +63,7 @@ describe("background cache", () => {
   beforeEach(async () => {
     gh.fail = false;
     gh.gate = null;
+    gh.peakSearches = 0;
     vi.useRealTimers();
     await resetViewerScopeCache();
     gh.calls = [];
@@ -161,5 +172,57 @@ describe("background cache", () => {
     const calls = gh.calls.length;
     await resolveViewerScope({ urls: [], windowDays: 30 });
     expect(gh.calls.length).toBe(calls);
+  });
+
+  test("GitHub searches run with bounded concurrency", async () => {
+    let release!: () => void;
+    gh.gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const pending = resolveViewerScope({ urls: [], windowDays: 30 });
+    for (let i = 0; i < 20; i += 1) {
+      await flush();
+      release();
+    }
+    await pending;
+    expect(gh.calls.filter((args) => args[0] === "search").length).toBe(8);
+    expect(gh.peakSearches).toBeLessThanOrEqual(2);
+  });
+
+  test("after a failed first sweep, reads back off instead of hammering GitHub", async () => {
+    gh.fail = true;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const first = await resolveViewerScope({ urls: [], windowDays: 30 });
+    expect(first.error).toMatch(/network down/);
+    const sweeps = loginCalls();
+
+    const again = await resolveViewerScope({ urls: [], windowDays: 30 });
+    expect(again.error).toMatch(/network down/);
+    expect(loginCalls()).toBe(sweeps); // answered from the recorded failure
+
+    gh.fail = false;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + FAILURE_BACKOFF_MS[0] + 1_000);
+    const recovered = await resolveViewerScope({ urls: [], windowDays: 30 });
+    expect(recovered.error).toBeNull();
+    expect(recovered.viewer).toBe("g0rdonL");
+    errors.mockRestore();
+  });
+
+  test("a failed refresh with nothing cached schedules a quick retry", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "Date"] });
+    gh.fail = true;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const stop = startBackgroundRefresh(60 * 60_000);
+    await vi.advanceTimersByTimeAsync(1_000); // viewerLogin's own 250 ms retry
+    const sweeps = loginCalls();
+    gh.fail = false;
+    await vi.advanceTimersByTimeAsync(FAILURE_BACKOFF_MS[0] + 1_000);
+    stop();
+    expect(loginCalls()).toBeGreaterThan(sweeps);
+    vi.useRealTimers();
+    const answer = await resolveViewerScope({ urls: [], windowDays: 30 });
+    expect(answer.error).toBeNull();
+    errors.mockRestore();
   });
 });

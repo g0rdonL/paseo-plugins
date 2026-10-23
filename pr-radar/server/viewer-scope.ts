@@ -71,6 +71,30 @@ async function runGh(args: string[], timeout = COMMAND_TIMEOUT_MS): Promise<stri
   return stdout.trim();
 }
 
+/**
+ * GitHub's search API applies a secondary rate limit to concurrent requests, and one snapshot
+ * issues eight searches (scope searches page up to ten times each). Firing them all at once trips
+ * it, so searches share a small queue.
+ */
+const SEARCH_CONCURRENCY = 2;
+let activeSearches = 0;
+const searchWaiters: Array<() => void> = [];
+
+async function runSearch(args: string[]): Promise<string> {
+  while (activeSearches >= SEARCH_CONCURRENCY) {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    searchWaiters.push(resolve);
+    await promise;
+  }
+  activeSearches += 1;
+  try {
+    return await runGh(args);
+  } finally {
+    activeSearches -= 1;
+    searchWaiters.shift()?.();
+  }
+}
+
 function delay(milliseconds: number): Promise<void> {
   const { promise, resolve } = Promise.withResolvers<void>();
   setTimeout(resolve, milliseconds);
@@ -111,7 +135,7 @@ async function searchPullRequests(
     "commentsCount",
     "labels",
   ].join(",");
-  const output = await runGh([
+  const output = await runSearch([
     "search",
     "prs",
     `--${filter}=${viewer}`,
@@ -129,7 +153,7 @@ async function searchPullRequests(
 async function searchScopeUrls(
   filter: "author" | "review-requested" | "assignee" | "mentions",
 ): Promise<string[]> {
-  const output = await runGh([
+  const output = await runSearch([
     "search",
     "prs",
     `--${filter}=@me`,
@@ -611,6 +635,39 @@ const DEFAULT_WINDOW_DAYS = 30;
 const snapshots = new Map<number, { snapshot: Snapshot; at: number }>();
 const inflight = new Map<number, Promise<Snapshot>>();
 const lastRequested = new Map<number, number>([[DEFAULT_WINDOW_DAYS, Date.now()]]);
+/** Retry delays after consecutive failed sweeps; the last one repeats. */
+export const FAILURE_BACKOFF_MS = [15_000, 30_000, 60_000, 120_000];
+const failures = new Map<number, { at: number; error: unknown; attempts: number }>();
+const retryTimers = new Map<number, ReturnType<typeof setTimeout>>();
+
+function backoffFor(attempts: number): number {
+  return FAILURE_BACKOFF_MS[Math.min(attempts, FAILURE_BACKOFF_MS.length) - 1];
+}
+
+/** A window whose last sweep failed recently is left alone so a rate limit can clear. */
+function inBackoff(windowDays: number): boolean {
+  const failure = failures.get(windowDays);
+  return failure !== undefined && Date.now() - failure.at < backoffFor(failure.attempts);
+}
+
+function recordFailure(windowDays: number, error: unknown): void {
+  const attempts = (failures.get(windowDays)?.attempts ?? 0) + 1;
+  failures.set(windowDays, { at: Date.now(), error, attempts });
+  // With nothing cached the client shows an error, so retry well before the next tick.
+  if (snapshots.has(windowDays) || retryTimers.has(windowDays)) return;
+  const timer = setTimeout(() => {
+    retryTimers.delete(windowDays);
+    refreshInBackground(windowDays);
+  }, backoffFor(attempts));
+  timer.unref?.();
+  retryTimers.set(windowDays, timer);
+}
+
+function clearFailure(windowDays: number): void {
+  failures.delete(windowDays);
+  clearTimeout(retryTimers.get(windowDays));
+  retryTimers.delete(windowDays);
+}
 
 /** Single-flight refresh: concurrent callers share one GitHub sweep. */
 function refreshWindow(windowDays: number): Promise<Snapshot> {
@@ -618,6 +675,16 @@ function refreshWindow(windowDays: number): Promise<Snapshot> {
   if (running) return running;
   const started = Date.now();
   const promise = fetchSnapshot(windowDays)
+    .then(
+      (snapshot) => {
+        clearFailure(windowDays);
+        return snapshot;
+      },
+      (error: unknown) => {
+        recordFailure(windowDays, error);
+        throw error;
+      },
+    )
     .then((snapshot) => {
       snapshots.set(windowDays, { snapshot, at: Date.now() });
       if (windowDays === DEFAULT_WINDOW_DAYS) void publishLauncherInbox(snapshot.inboxItems);
@@ -663,8 +730,13 @@ export async function resolveViewerScope({
   lastRequested.set(windowDays, Date.now());
   const cached = snapshots.get(windowDays);
   if (cached) {
-    if (Date.now() - cached.at > STALE_AFTER_MS) refreshInBackground(windowDays);
+    if (Date.now() - cached.at > STALE_AFTER_MS && !inBackoff(windowDays)) {
+      refreshInBackground(windowDays);
+    }
     return projectSnapshot(cached.snapshot, urls);
+  }
+  if (inBackoff(windowDays) && !inflight.has(windowDays)) {
+    return errorOutput(failures.get(windowDays)?.error);
   }
   // First request for this window (or the startup refresh is still running): wait once.
   try {
@@ -681,6 +753,7 @@ export async function resetViewerScopeCache(): Promise<void> {
   await stateQueue;
   snapshots.clear();
   inflight.clear();
+  for (const windowDays of [...failures.keys(), ...retryTimers.keys()]) clearFailure(windowDays);
   lastRequested.clear();
   lastRequested.set(DEFAULT_WINDOW_DAYS, Date.now());
 }
