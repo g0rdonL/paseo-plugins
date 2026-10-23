@@ -11,7 +11,6 @@ import {
   classifyRow,
   formatAge,
   hasActiveAgent,
-  isMergeable,
   matchesRow,
   mergeInboxRows,
   openPullRequestUrl,
@@ -93,9 +92,8 @@ describe("sorting", () => {
       repository: "m/three",
     }),
     row({
-      id: "ready-theirs",
+      id: "ready-newest",
       bucket: "ready",
-      ownership: "external",
       activityAt: "2026-08-30T13:00:00.000Z",
       repository: "b/four",
     }),
@@ -108,44 +106,83 @@ describe("sorting", () => {
     }),
   ];
   const ids = (sorted: RadarRow[]) => sorted.map((r) => r.id);
+  const titles = (sorted: RadarRow[]) => sorted.map((r) => r.title);
 
-  test("mergeable first: rows with a Merge button lead, newest first, then by bucket", () => {
+  test("mergeable first: ready rows lead, newest first, then the remaining rows by bucket", () => {
     expect(ids(sortRows(rows, "mergeable"))).toEqual([
+      "ready-newest",
       "ready-new",
       "ready-old",
       "red-new",
-      "ready-theirs",
       "waiting",
     ]);
   });
 
-  test("mergeable means mine, ready, not a draft", () => {
-    expect(isMergeable(row({ bucket: "ready" }))).toBe(true);
-    expect(isMergeable(row({ bucket: "ready", ownership: "external" }))).toBe(false);
-    expect(isMergeable(row({ bucket: "ready", isDraft: true }))).toBe(false);
-    expect(isMergeable(row({ bucket: "needs-you" }))).toBe(false);
-  });
-
-  test("needs attention first keeps the existing bucket order, oldest first within", () => {
+  test("needs attention first keeps the bucket order, oldest first within a bucket", () => {
     expect(ids(sortRows(rows, "attention"))).toEqual([
       "red-new",
       "ready-old",
       "ready-new",
-      "ready-theirs",
+      "ready-newest",
       "waiting",
     ]);
   });
 
   test("recent, oldest, and repository orders", () => {
-    expect(ids(sortRows(rows, "recent"))[0]).toBe("ready-theirs");
+    expect(ids(sortRows(rows, "recent"))[0]).toBe("ready-newest");
     expect(ids(sortRows(rows, "oldest"))[0]).toBe("ready-old");
     expect(ids(sortRows(rows, "repository"))).toEqual([
       "waiting",
       "ready-old",
-      "ready-theirs",
+      "ready-newest",
       "ready-new",
       "red-new",
     ]);
+  });
+
+  describe("ties", () => {
+    const tied = ["Bravo", "Alpha", "Charlie"].map((title, index) =>
+      row({
+        id: `tie-${title}`,
+        number: index + 1,
+        url: `https://github.com/getpaseo/paseo/pull/${index + 1}`,
+        title,
+        activityAt: "2026-08-01T00:00:00.000Z",
+      }),
+    );
+    const newer = row({
+      id: "tie-Delta",
+      number: 4,
+      url: "https://github.com/getpaseo/paseo/pull/4",
+      title: "Delta",
+      activityAt: "2026-08-05T00:00:00.000Z",
+    });
+    const scope = {
+      authoredUrls: [...tied, newer].map((item) => item.url),
+      reviewRequestedUrls: [],
+      error: null,
+      inboxItems: [],
+    };
+    // The order the radar already shows: bucket, longest waiting first, then title.
+    const existing = applyViewerScope([...tied, newer], scope);
+
+    test("needs attention first reproduces the existing order, titles ascending on ties", () => {
+      expect(titles(existing)).toEqual(["Alpha", "Bravo", "Charlie", "Delta"]);
+      expect(ids(sortRows([...existing].reverse(), "attention"))).toEqual(ids(existing));
+    });
+
+    test("oldest first and recently updated both break ties by title ascending", () => {
+      expect(titles(sortRows(existing, "oldest"))).toEqual(["Alpha", "Bravo", "Charlie", "Delta"]);
+      expect(titles(sortRows(existing, "recent"))).toEqual(["Delta", "Alpha", "Bravo", "Charlie"]);
+    });
+  });
+
+  test("rows without a known activity time sort as the oldest and never throw", () => {
+    const unknown = row({ id: "unknown", activityAt: null });
+    const known = row({ id: "known", activityAt: "2026-08-10T00:00:00.000Z" });
+    expect(ids(sortRows([known, unknown], "oldest"))).toEqual(["unknown", "known"]);
+    expect(ids(sortRows([unknown, known], "recent"))).toEqual(["known", "unknown"]);
+    expect(ids(sortRows([known, unknown], "attention"))).toEqual(["unknown", "known"]);
   });
 
   test("does not mutate its input", () => {

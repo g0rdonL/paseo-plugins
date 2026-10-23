@@ -559,11 +559,6 @@ export function applyViewerScope(
   return result;
 }
 
-/** Rows the viewer can likely merge now: their own, ready, and not a draft. */
-export function isMergeable(row: RadarRow): boolean {
-  return row.ownership === "mine" && row.bucket === "ready" && !row.isDraft && row.number !== null;
-}
-
 export const SORT_KEYS = ["attention", "mergeable", "recent", "oldest", "repository"] as const;
 export type SortKey = (typeof SORT_KEYS)[number];
 
@@ -575,7 +570,10 @@ export const SORT_TITLES: Record<SortKey, string> = {
   repository: "Repository",
 };
 
+// Unknown or unparsable activity counts as the epoch (the oldest), which keeps the order total.
 const activityOf = (row: RadarRow) => Date.parse(row.activityAt ?? "") || 0;
+const oldestFirst = (left: RadarRow, right: RadarRow) =>
+  activityOf(left) - activityOf(right) || left.title.localeCompare(right.title);
 const newestFirst = (left: RadarRow, right: RadarRow) =>
   activityOf(right) - activityOf(left) || left.title.localeCompare(right.title);
 
@@ -584,22 +582,23 @@ export function sortRows(rows: readonly RadarRow[], key: SortKey): RadarRow[] {
   const sorted = [...rows];
   switch (key) {
     case "mergeable":
+      // classifyRow only yields "ready" for the viewer's own, non-draft, mergeable PRs.
       return sorted.sort(
         (left, right) =>
-          Number(isMergeable(right)) - Number(isMergeable(left)) ||
+          Number(right.bucket === "ready") - Number(left.bucket === "ready") ||
           BUCKET_ORDER[left.bucket] - BUCKET_ORDER[right.bucket] ||
           newestFirst(left, right),
       );
     case "attention":
-      // The default: the existing order, by bucket and longest-waiting first within one.
+      // The default: the order applyViewerScope produces, longest waiting first within a bucket.
       return sorted.sort(
         (left, right) =>
-          BUCKET_ORDER[left.bucket] - BUCKET_ORDER[right.bucket] || newestFirst(right, left),
+          BUCKET_ORDER[left.bucket] - BUCKET_ORDER[right.bucket] || oldestFirst(left, right),
       );
     case "recent":
       return sorted.sort(newestFirst);
     case "oldest":
-      return sorted.sort((left, right) => newestFirst(right, left));
+      return sorted.sort(oldestFirst);
     case "repository":
       return sorted.sort(
         (left, right) =>

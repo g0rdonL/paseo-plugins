@@ -366,7 +366,6 @@ export function PrRadar({
         borderColor: theme.colors.foreground,
       },
       chipText: { color: theme.colors.foregroundMuted, fontSize: 12, fontWeight: "600" as const },
-      sortRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: 7 },
       chipTextActive: { color: theme.colors.surface0 },
       search: {
         minHeight: 40,
@@ -796,7 +795,7 @@ export function PrRadar({
       <View
         accessibilityRole="radiogroup"
         accessibilityLabel="Sort pull requests"
-        style={styles.sortRow}
+        style={styles.chips}
       >
         <Text style={[styles.chipText, { alignSelf: "center" }]}>Sort</Text>
         {SORT_KEYS.map((key) => (
