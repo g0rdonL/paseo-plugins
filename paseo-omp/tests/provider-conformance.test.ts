@@ -1,12 +1,16 @@
 import { readFileSync } from "node:fs";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import type { ProviderEvent, ProviderRegistration } from "@getpaseo/plugin/server/provider";
-import { afterEach, describe, expect, test } from "vitest";
+import type {
+  ProviderConnection,
+  ProviderEvent,
+  ProviderRegistration,
+} from "@getpaseo/plugin/server/provider";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import type {
   AgentClient,
   AgentPromptInput,
@@ -17,6 +21,7 @@ import type {
 import { ompModelId } from "../server/provider/catalog";
 import type { OmpModel } from "../server/provider/omp-rpc-protocol";
 import { createOmpProvider } from "../server/provider/registration";
+import { OMP_SESSION_PURPOSE_ENV } from "../server/provider/session-purpose";
 
 const pluginProviderModulePath = new URL(
   "../node_modules/@getpaseo/server/dist/server/server/agent/plugin-provider.js",
@@ -212,7 +217,13 @@ function processIsAlive(pid: number): boolean {
 }
 
 async function createHarness(
-  options: { typedApprovals?: boolean; chunkHistory?: boolean; stubbornDescendant?: boolean } = {},
+  options: {
+    typedApprovals?: boolean;
+    chunkHistory?: boolean;
+    stubbornDescendant?: boolean;
+    /** False leaves no `omp` on PATH and no OMP_COMMAND, so only per-agent commands can launch. */
+    defaultCommand?: boolean;
+  } = {},
 ): Promise<Harness> {
   const root = await mkdtemp(join(tmpdir(), "paseo-omp-conformance-"));
   roots.push(root);
@@ -228,11 +239,13 @@ async function createHarness(
     { mode: 0o755 },
   );
   await chmod(wrapperPath, 0o755);
+  const emptyPath = join(root, "empty-bin");
+  await mkdir(emptyPath, { recursive: true });
   const registration = createOmpProvider({
     environment: {
       HOME: root,
-      PATH: process.env.PATH ?? "/usr/bin:/bin",
-      OMP_COMMAND: wrapperPath,
+      PATH: options.defaultCommand === false ? emptyPath : (process.env.PATH ?? "/usr/bin:/bin"),
+      ...(options.defaultCommand === false ? {} : { OMP_COMMAND: wrapperPath }),
       OMP_SESSION_DIR: sessionDir,
     },
     replayTimeoutMs: 5_000,
@@ -310,6 +323,33 @@ async function writePersistedSession(harness: Harness): Promise<string> {
   return file;
 }
 
+/** A journal in OMP's linked-entry format, the only one a history-only replay can read alone. */
+async function writeLinkedSession(harness: Harness): Promise<string> {
+  const file = join(harness.sessionDir, `2026-09-12T00-00-00-000Z_${PRIMARY_SESSION_ID}.jsonl`);
+  await writeFile(
+    file,
+    `${[
+      { type: "session", version: 3, id: PRIMARY_SESSION_ID, cwd: harness.cwd },
+      { type: "title", title: "Removed workspace session" },
+      {
+        type: "message",
+        id: "11111111",
+        parentId: null,
+        message: { role: "user", content: "replayed question" },
+      },
+      {
+        type: "message",
+        id: "22222222",
+        parentId: "11111111",
+        message: { role: "assistant", content: "replayed answer" },
+      },
+    ]
+      .map((entry) => JSON.stringify(entry))
+      .join("\n")}\n`,
+  );
+  return file;
+}
+
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
@@ -321,7 +361,7 @@ const RECOVERY_TEST =
   "recovers after subprocess death and lets registry replacement retire active sessions";
 
 describeOnPosix("OMP plugin provider conformance through PluginAgentClientRegistry", () => {
-  test("Paseo 0.9.2 contains an early provider failure and serves a follow-up request", async () => {
+  test("the installed Paseo adapter contains an early provider failure and serves a follow-up request", async () => {
     let publish: ((event: ProviderEvent) => void) | undefined;
     const registration: ProviderRegistration = {
       id: "containment-fixture",
@@ -452,6 +492,92 @@ describeOnPosix("OMP plugin provider conformance through PluginAgentClientRegist
       ).resolves.toMatchObject({ status: "available" });
     } finally {
       await harness.close();
+    }
+  });
+
+  test("reports provider status for the plugin-owned default launch through the host", async () => {
+    const available = await createHarness();
+    const missing = await createHarness({ defaultCommand: false });
+    try {
+      await expect(available.client.isAvailable()).resolves.toBe(true);
+      await expect(available.client.getDiagnostic?.()).resolves.toEqual({
+        diagnostic: "Provider is available",
+      });
+      // The host asks `status` before create, resume, and draft calls and never passes per-agent
+      // providerOptions, so a missing default executable blocks all of them, including agents
+      // configured with an otherwise valid custom command. This is the accepted breaking change.
+      await expect(missing.client.isAvailable()).resolves.toBe(false);
+      await expect(missing.client.getDiagnostic?.()).resolves.toEqual({
+        diagnostic: "OMP executable was not found",
+      });
+    } finally {
+      await Promise.all([available.close(), missing.close()]);
+    }
+  });
+
+  test("host contract: status sees only launch and a declared command gates connect", async () => {
+    const connects: unknown[] = [];
+    const statusRequests: unknown[] = [];
+    const connection = (): ProviderConnection => ({
+      version: 1,
+      capabilities: [],
+      async send() {},
+      onEvent: () => () => {},
+      async close() {},
+    });
+    const declared: ProviderRegistration = {
+      id: "declared-command-fixture",
+      label: "Declared command fixture",
+      command: ["paseo-omp-missing-default-binary"],
+      async connect(request) {
+        connects.push(request);
+        return connection();
+      },
+    };
+    const statusOnly: ProviderRegistration = {
+      id: "status-only-fixture",
+      label: "Status only fixture",
+      async status(request) {
+        statusRequests.push(request);
+        return { available: true };
+      },
+      async connect() {
+        return connection();
+      },
+    };
+    const adapter = (await import(pluginProviderModulePath)) as unknown as {
+      PluginAgentClientRegistry: HostRegistryConstructor;
+    };
+    const registry = new adapter.PluginAgentClientRegistry(pino({ enabled: false }));
+    registry.replace([declared, statusOnly]);
+    try {
+      const gated = registry.clients()[declared.id];
+      const plain = registry.clients()[statusOnly.id];
+      if (!gated || !plain) throw new Error("fixture clients are missing");
+      // Declaring `command` makes the daemon resolve it: a missing default binary makes the
+      // provider unavailable and blocks connect even if a per-agent command would have worked.
+      await expect(gated.isAvailable()).resolves.toBe(false);
+      await expect(gated.getDiagnostic?.()).resolves.toEqual({
+        diagnostic: "paseo-omp-missing-default-binary not found on PATH",
+      });
+      await expect(
+        gated.createSession({
+          provider: declared.id,
+          cwd: "/repo",
+          model: "fixture-model",
+          modeId: "full",
+          featureValues: {},
+          providerOptions: { command: [process.execPath] },
+        }),
+      ).rejects.toThrow("not found on PATH");
+      expect(connects).toEqual([]);
+      // Without `command` the daemon supplies no launch, and `status` carries nothing else:
+      // per-agent providerOptions never reach it.
+      await expect(plain.isAvailable()).resolves.toBe(true);
+      expect(statusRequests).toEqual([{ launch: undefined }]);
+      expect(Object.keys(statusRequests[0] as object)).toEqual(["launch"]);
+    } finally {
+      await registry.shutdown();
     }
   });
 
@@ -932,6 +1058,94 @@ describeOnPosix("OMP plugin provider conformance through PluginAgentClientRegist
       expect(argv[argv.indexOf("--resume") + 1]).toBe(transcriptFile);
     } finally {
       await resumed?.close();
+      await imported?.close();
+      await harness.close();
+    }
+  });
+
+  test("serves history after the workspace is removed without spawning OMP, then resumes once it returns", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const harness = await createHarness();
+    const transcriptFile = await writeLinkedSession(harness);
+    const config = harness.config({ systemPrompt: "must not be reapplied" });
+    const startCount = async () =>
+      (await readLog(harness.logPath)).filter((entry) => entry.kind === "start").length;
+    let imported: AgentSession | undefined;
+    let history: AgentSession | undefined;
+    let resumed: AgentSession | undefined;
+    try {
+      const candidate = (await harness.client.listImportableSessions?.({ cwd: harness.cwd }))?.[0];
+      if (!candidate || !harness.client.importSession)
+        throw new Error("session import unavailable");
+      const result = await harness.client.importSession(
+        { providerHandleId: candidate.providerHandleId, cwd: harness.cwd },
+        { config, storedConfig: config, launchContext: harness.launchEnv() },
+      );
+      imported = result.session;
+      const handle = imported.describePersistence();
+      if (!handle) throw new Error("missing persistence handle");
+      await imported.close();
+      imported = undefined;
+      const startsBeforeRemoval = await startCount();
+
+      await rm(harness.cwd, { recursive: true });
+
+      // An ordinary resume still needs the recorded workspace and starts nothing without it.
+      await expect(
+        harness.client.resumeSession(handle, config, harness.launchEnv()),
+      ).rejects.toThrow("OMP session failed to open");
+      expect(await startCount()).toBe(startsBeforeRemoval);
+
+      // The host-derived history marker serves the same handle from the authorized transcript.
+      history = await harness.client.resumeSession(
+        handle,
+        config,
+        harness.launchEnv({ [OMP_SESSION_PURPOSE_ENV]: "history" }),
+      );
+      expect(history.describePersistence()).toEqual(handle);
+      const replayed: string[] = [];
+      for await (const event of history.streamHistory()) {
+        if (
+          event.type === "timeline" &&
+          (event.item.type === "user_message" || event.item.type === "assistant_message")
+        ) {
+          replayed.push(event.item.text);
+        }
+      }
+      expect(replayed).toEqual(["replayed question", "replayed answer"]);
+      expect(await startCount()).toBe(startsBeforeRemoval);
+      await history.close();
+      history = undefined;
+
+      // A transcript that is not a regular file owned by the session directory is never read.
+      const linkedTarget = join(harness.root, "linked-transcript.jsonl");
+      await writeFile(linkedTarget, await readFile(transcriptFile));
+      await rm(transcriptFile);
+      await symlink(linkedTarget, transcriptFile);
+      await expect(
+        harness.client.resumeSession(
+          handle,
+          config,
+          harness.launchEnv({ [OMP_SESSION_PURPOSE_ENV]: "history" }),
+        ),
+      ).rejects.toThrow("could not be resolved in this workspace");
+      await rm(transcriptFile);
+      await writeFile(transcriptFile, await readFile(linkedTarget));
+
+      // Once the workspace returns, the same persistence resumes the native session interactively.
+      await mkdir(harness.cwd);
+      resumed = await harness.client.resumeSession(handle, config, harness.launchEnv());
+      expect(resumed.describePersistence()).toEqual(handle);
+      const argv = (await readLog(harness.logPath)).findLast(
+        (entry) => entry.kind === "start",
+      )?.argv;
+      expect(argv?.[argv.indexOf("--resume") + 1]).toBe(transcriptFile);
+      expect(argv).not.toContain("--append-system-prompt");
+      expect(await startCount()).toBe(startsBeforeRemoval + 1);
+    } finally {
+      await resumed?.close();
+      await history?.close();
+      consoleError.mockRestore();
       await imported?.close();
       await harness.close();
     }

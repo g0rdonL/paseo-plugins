@@ -1,5 +1,84 @@
 # Changelog
 
+## [3.0.0](https://github.com/omercnet/paseo-plugins/compare/paseo-omp-v2.0.2...paseo-omp-v3.0.0) (2026-10-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **paseo-omp:** requires Paseo ^0.12.0. The includeBackground option throws on older hosts.
+
+### Bug Fixes
+
+* **paseo-omp:** include background workspaces in composer pills and Hub ([#353](https://github.com/omercnet/paseo-plugins/issues/353)) ([5136da8](https://github.com/omercnet/paseo-plugins/commit/5136da8b7a8d9d7aa6ca8f508579b85d7e6a443f))
+* **paseo-omp:** steer running turns when permissions are cleared ([#351](https://github.com/omercnet/paseo-plugins/issues/351)) ([03ed477](https://github.com/omercnet/paseo-plugins/commit/03ed477cbf85295fb01b5128e8bd4a82af3f1b03))
+
+## [2.0.2](https://github.com/omercnet/paseo-plugins/compare/paseo-omp-v2.0.1...paseo-omp-v2.0.2) (2026-10-15)
+
+
+### Bug Fixes
+
+* **paseo-omp:** keep forwarded MCP tools out of OMP's reclaimed namespace ([cc73a03](https://github.com/omercnet/paseo-plugins/commit/cc73a03fee48e2eabf8c908a1ac4f2cc1b96ba31))
+
+## [2.0.1](https://github.com/omercnet/paseo-plugins/compare/paseo-omp-v2.0.0...paseo-omp-v2.0.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **paseo-omp:** read hub process spec from spec.json and extend OMP matrix to 18.8.4 ([#320](https://github.com/omercnet/paseo-plugins/issues/320)) ([5b0e17b](https://github.com/omercnet/paseo-plugins/commit/5b0e17b808515dd60a7eb25f32db668d4866fd75))
+* **paseo-omp:** skip failing optional MCP servers on session open ([#325](https://github.com/omercnet/paseo-plugins/issues/325)) ([7c47aa1](https://github.com/omercnet/paseo-plugins/commit/7c47aa14dfc6eda9ae550c7376a22103d1d73beb))
+
+## [2.0.0](https://github.com/omercnet/paseo-plugins/compare/paseo-omp-v1.3.3...paseo-omp-v2.0.0) (2026-10-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **paseo-omp:** on Paseo 0.11 hosts a missing default OMP executable blocks create, resume, and draft operations, including agents configured with a per-agent command.
+* the affected plugins no longer load on Paseo 0.9 or 0.10. Screen and sidebar IDs, params and settings are unchanged.
+
+### Features
+
+* **paseo-omp:** gate provider operations on default OMP detection ([#287](https://github.com/omercnet/paseo-plugins/issues/287)) ([e8fc770](https://github.com/omercnet/paseo-plugins/commit/e8fc770e8cfbf2113fb2ef72be90590c778e3d88))
+* require Paseo 0.11 and drop legacy surface navigation ([#286](https://github.com/omercnet/paseo-plugins/issues/286)) ([a46fe9e](https://github.com/omercnet/paseo-plugins/commit/a46fe9ee910c2cc485043d53c67dacf49bab402b))
+
+
+### Bug Fixes
+
+* **paseo-omp:** drop expired and abandoned quota windows ([#313](https://github.com/omercnet/paseo-plugins/issues/313)) ([bcd991e](https://github.com/omercnet/paseo-plugins/commit/bcd991e05714743103a86bd7a6b234f0f984a460))
+
+## [1.3.3](https://github.com/omercnet/paseo-plugins/compare/paseo-omp-v1.3.2...paseo-omp-v1.3.3) (2026-10-09)
+
+
+### Bug Fixes
+
+* **packaging:** lock npm runtime dependencies with npm-shrinkwrap.json ([#300](https://github.com/omercnet/paseo-plugins/issues/300)) ([1b0755c](https://github.com/omercnet/paseo-plugins/commit/1b0755c9097681cdc167fb26bd2d1c3cc5e72830))
+
+## [1.3.2](https://github.com/omercnet/paseo-plugins/compare/paseo-omp-v1.3.1...paseo-omp-v1.3.2) (2026-10-08)
+
+
+### Bug Fixes
+
+* **paseo-omp:** support Paseo 0.11.1 and archived history ([#296](https://github.com/omercnet/paseo-plugins/issues/296)) ([c89ea55](https://github.com/omercnet/paseo-plugins/commit/c89ea55d148c09250202506218fc940d37459ae2))
+
+## [1.3.1](https://github.com/omercnet/paseo-plugins/compare/paseo-omp-v1.3.0...paseo-omp-v1.3.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **plugins:** ship OVERVIEW.md in published packages ([640f9a4](https://github.com/omercnet/paseo-plugins/commit/640f9a4d7bd6dbad226c4ee1ebaa199abfc62776))
+
+## [1.3.0](https://github.com/omercnet/paseo-plugins/compare/paseo-omp-v1.2.0...paseo-omp-v1.3.0) (2026-10-07)
+
+
+### Features
+
+* **paseo-omp:** explain tool access boundary and mark quotas as recorded usage ([#277](https://github.com/omercnet/paseo-plugins/issues/277)) ([a479d4a](https://github.com/omercnet/paseo-plugins/commit/a479d4ab7c15f91dd37c2f30c102c0ed4b063f68))
+
+
+### Bug Fixes
+
+* **paseo-omp:** await permission acknowledgement in canary smoke ([#289](https://github.com/omercnet/paseo-plugins/issues/289)) ([f503485](https://github.com/omercnet/paseo-plugins/commit/f5034853d13f0dc5aeec15e4959a35f801a8e3a1))
+* **paseo-omp:** raise catalog budgets for large OMP registries ([#276](https://github.com/omercnet/paseo-plugins/issues/276)) ([61abe50](https://github.com/omercnet/paseo-plugins/commit/61abe5099557afb4e1e94d1dfd9cae6639aba408))
+
 ## [1.2.0](https://github.com/omercnet/paseo-plugins/compare/paseo-omp-v1.1.0...paseo-omp-v1.2.0) (2026-10-03)
 
 

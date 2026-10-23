@@ -1,5 +1,34 @@
 # Changelog
 
+## [4.0.0](https://github.com/omercnet/paseo-plugins/compare/queens-v3.0.0...queens-v4.0.0) (2026-10-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **queens:** requires Paseo ^0.12.0. The includeBackground option throws on older hosts.
+
+### Bug Fixes
+
+* **queens:** include background workspaces ([#350](https://github.com/omercnet/paseo-plugins/issues/350)) ([af6be35](https://github.com/omercnet/paseo-plugins/commit/af6be35fd495d0437f8fa623daca2cdb8639d8d1))
+
+## [3.0.0](https://github.com/omercnet/paseo-plugins/compare/queens-v2.2.1...queens-v3.0.0) (2026-10-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* the affected plugins no longer load on Paseo 0.9 or 0.10. Screen and sidebar IDs, params and settings are unchanged.
+
+### Features
+
+* require Paseo 0.11 and drop legacy surface navigation ([#286](https://github.com/omercnet/paseo-plugins/issues/286)) ([a46fe9e](https://github.com/omercnet/paseo-plugins/commit/a46fe9ee910c2cc485043d53c67dacf49bab402b))
+
+## [2.2.1](https://github.com/omercnet/paseo-plugins/compare/queens-v2.2.0...queens-v2.2.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **plugins:** ship OVERVIEW.md in published packages ([640f9a4](https://github.com/omercnet/paseo-plugins/commit/640f9a4d7bd6dbad226c4ee1ebaa199abfc62776))
+
 ## [2.2.0](https://github.com/omercnet/paseo-plugins/compare/queens-v2.1.0...queens-v2.2.0) (2026-10-03)
 
 

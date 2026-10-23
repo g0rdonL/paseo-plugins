@@ -36,6 +36,7 @@ test("owned agent directory updates reconcile new agent pills and cached quota r
     { id: "codex", provider: "codex", model: "gpt-5.6-sol" },
   ];
   let onDirectoryUpdate = () => {};
+  const listOptions: Array<{ filter?: { includeBackground?: boolean }; subscribe?: object }> = [];
   const buttons: Array<{
     id: string;
     agentId: string;
@@ -71,7 +72,11 @@ test("owned agent directory updates reconcile new agent pills and cached quota r
   const client = {
     paseo: {
       agents: {
-        list: async (options?: { subscribe?: object }) => {
+        list: async (options?: {
+          filter?: { includeBackground?: boolean };
+          subscribe?: object;
+        }) => {
+          listOptions.push(options ?? {});
           const result = {
             entries: agents.map((agent) => ({
               agent: {
@@ -102,8 +107,9 @@ test("owned agent directory updates reconcile new agent pills and cached quota r
     rpc,
     addWorkspacePanel: registration,
     addCommandCenterItem: registration,
-    addSurface: registration,
-    addSidebarItem: registration,
+    addScreen: registration,
+    addSidebarHeaderItem: registration,
+    openScreen: vi.fn(),
     addTimelineRenderer: registration,
     addTimelineTransformer: registration,
     addComposerPill: (options: { id: string; agentId: string }) => {
@@ -142,6 +148,11 @@ test("owned agent directory updates reconcile new agent pills and cached quota r
         .filter(([definition]) => definition === listOmpQuotas)
         .map(([, input]) => input.store?.profile),
     ).toEqual(["team-alpha", "team-beta", undefined]);
+    // Pills must attach to agents in background workspaces, for the page fetch and the subscription.
+    expect(listOptions.some((options) => options.subscribe)).toBe(true);
+    expect(listOptions.map((options) => options.filter)).toEqual(
+      listOptions.map(() => ({ includeBackground: true })),
+    );
 
     agents.push({
       id: "new-agent",

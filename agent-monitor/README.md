@@ -1,7 +1,7 @@
 # agent-monitor
 
 One roster for every agent on a daemon: an `Agent monitor` screen in the sidebar plus a global
-Command Center item (`Open agent monitor`). On Paseo 0.11 the sidebar row also counts the agents
+Command Center item (`Open agent monitor`). The sidebar row also counts the agents
 that need attention.
 
 Answers "which of my 38 agents needs me right now" without walking the workspace tree.
@@ -46,7 +46,7 @@ no private organization names remained in the rendered page.
   collapsed) to open its workspace through Paseo's cross-platform navigation API.
 - Archive one agent, or sweep every closed agent (two taps).
 
-## Sidebar row (Paseo 0.11)
+## Sidebar row
 
 - The row's badge counts the Attention bucket, using the same rule as the roster. It shows no
   number while the roster loads or after a refresh fails, and `N+` once the agent list reaches the
@@ -56,7 +56,6 @@ no private organization names remained in the rendered page.
 - The monitor screen accepts a `bucket` param (`attention`, `running`, `idle`, `closed`, or `all`)
   as its initial filter, so a link such as `…/surface/monitor?param.bucket=attention` opens
   filtered and keeps that filter on reload. Chips then filter in place without changing the URL.
-- Paseo 0.9 and 0.10 keep the static sidebar item that opens the monitor surface.
 
 ## How it reads state
 
@@ -67,18 +66,19 @@ agent whose workspace is beyond the paged workspace list still lands under its r
 refresh from agent, workspace, and project subscription deltas, debounced 750ms, with a 30s
 backstop refetch. The screen, the sidebar row, and its popover share that query, subscription set,
 and backstop; on web and desktop, refreshes pause while the window is hidden and catch up when it returns. The plugin
-borrows the selected host's connection; it opens no socket of its own.
+borrows the selected host's connection; it opens no socket of its own. Agents and workspaces in
+background workspaces are included.
 
 ## Limits
 
 Interrupting a turn is not part of `PaseoApi`, so archive is the only lifecycle action here.
 
-The sidebar popover lists agents but cannot open them: Paseo 0.11 gives popovers no navigation.
+The sidebar popover lists agents but cannot open them: Paseo 0.12 gives popovers no navigation.
 Open the monitor and select the agent there.
 
 ## Install
 
-Requires Paseo `^0.9.0 || ^0.10.0 || ^0.11.0`. Development uses the stable 0.9 SDK line.
+Requires Paseo `^0.12.0`, whose background workspaces the monitor lists. Development uses the 0.12 SDK line from the workspace catalog.
 
 Install the published package on the daemon host:
 
@@ -100,8 +100,8 @@ bun run typecheck
 Release Please maintains the version, changelog, component tag, and GitHub release from
 Conventional Commits in the monorepo.
 
-The project supports Paseo `^0.9.0 || ^0.10.0 || ^0.11.0` and pins `@getpaseo/plugin`, `@getpaseo/client`,
-`@getpaseo/protocol`, and `@getpaseo/cli` to the stable 0.9 SDK line. Renovate groups `@getpaseo/*`
+The project supports Paseo `^0.12.0` and pins `@getpaseo/plugin`, `@getpaseo/client`,
+`@getpaseo/protocol`, and `@getpaseo/cli` to the 0.12 SDK line through the workspace catalog. Renovate groups `@getpaseo/*`
 updates so the SDKs move together.
 
 React `19.1` and React Native `0.81` intentionally match the versions supplied by Paseo.

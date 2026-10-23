@@ -50,14 +50,10 @@ export function contributeContextModeComposerPills(client: PluginClientContext):
         behavior: {
           kind: "action",
           onPress() {
-            if (typeof client.addScreen === "function" && typeof client.openScreen === "function") {
-              client.openScreen({
-                screenId: "context-mode",
-                params: { section: "knowledge", agentId: agent.id, workspaceId: agent.workspaceId },
-              });
-            } else {
-              client.openSurface("context-mode");
-            }
+            client.openScreen({
+              screenId: "context-mode",
+              params: { section: "knowledge", agentId: agent.id, workspaceId: agent.workspaceId },
+            });
           },
         },
       },
@@ -79,7 +75,7 @@ export function contributeContextModeComposerPills(client: PluginClientContext):
 
   void client.paseo.agents
     .list({
-      filter: { includeArchived: false },
+      filter: { includeArchived: false, includeBackground: true },
       subscribe: {},
       signal: lifetime.signal,
     })

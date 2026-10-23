@@ -5,6 +5,7 @@ import type {
   ProviderToolCallDetail,
 } from "@getpaseo/plugin/server/provider";
 import { OMP_MCP_AUTH_TIMELINE_KIND } from "../../shared/mcp";
+import { HOST_TOOL_NAME_PREFIX, LEGACY_HOST_TOOL_NAME_PREFIX } from "./host-tools";
 import { isOmpImageMimeType, isValidImagePayload, type OmpImageMimeType } from "./image";
 import {
   OMP_MAX_CONTENT_PARTS,
@@ -189,8 +190,15 @@ function xdeviceToolName(nativeName: string, input: JsonValue): string | undefin
   const match = path?.match(/^xd:\/\/([A-Za-z0-9_][A-Za-z0-9_.-]{0,255})(?:[/?#]|$)/u);
   return match?.[1];
 }
+function hostToolPrefixOf(name: string): string | undefined {
+  if (name.startsWith(HOST_TOOL_NAME_PREFIX)) return HOST_TOOL_NAME_PREFIX;
+  // Timelines persisted before the rename still carry the legacy prefix.
+  if (name.startsWith(LEGACY_HOST_TOOL_NAME_PREFIX)) return LEGACY_HOST_TOOL_NAME_PREFIX;
+  return undefined;
+}
 function friendlyXdeviceToolName(name: string): string {
-  const routedName = name.startsWith("mcp__") ? name.slice("mcp__".length) : name;
+  const prefix = hostToolPrefixOf(name);
+  const routedName = prefix ? name.slice(prefix.length) : name;
   const words = routedName
     .replace(/[-_.]+/gu, " ")
     .replace(/\s+/gu, " ")
@@ -463,6 +471,9 @@ export class OmpTimelineProjector {
       event.type === "config_warnings_changed" ||
       event.type === "advisor_cost_changed" ||
       event.type === "ttsr_triggered" ||
+      event.type === "cache_warming_start" ||
+      event.type === "cache_warming_end" ||
+      event.type === "queue_update" ||
       event.type === "irc_message" ||
       event.type === "model_changed" ||
       event.type === "thinking_level_changed"
@@ -538,7 +549,7 @@ export class OmpTimelineProjector {
         const routedToolName = xdeviceToolName(event.toolName, input);
         const displayName =
           this.hostToolLabels.get(routedToolName ?? event.toolName) ??
-          (routedToolName || event.toolName.startsWith("mcp__")
+          (routedToolName || hostToolPrefixOf(event.toolName)
             ? friendlyXdeviceToolName(routedToolName ?? event.toolName)
             : event.toolName);
         const snapshot: ToolSnapshot = {

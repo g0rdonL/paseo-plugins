@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
-import { DaemonClient, type WaitForFinishResult } from "@getpaseo/client/internal/daemon-client";
+import {
+  DaemonClient,
+  type ProviderSubagentTimelinePayload,
+  type WaitForFinishResult,
+} from "@getpaseo/client/internal/daemon-client";
 
 const url = process.env.PASEO_CANARY_URL ?? "ws://127.0.0.1:6768/ws";
 const password = process.env.PASEO_CANARY_PASSWORD;
@@ -12,6 +16,20 @@ if (!password) throw new Error("PASEO_CANARY_PASSWORD is required");
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
+}
+
+type SubagentRows = ProviderSubagentTimelinePayload["rows"];
+
+// OMP <= 18.10.1 reports a task subagent's result as a `yield` call. Since 18.10.2 the setting
+// `task.structured` defaults to off: subagents have no `yield` and return their final message.
+function reportsSubagentResult(rows: SubagentRows, marker: string): boolean {
+  return rows.some(
+    (row) =>
+      (row.item.type === "tool_call" &&
+        row.item.name === "yield" &&
+        JSON.stringify(row.item.detail).includes(marker)) ||
+      (row.item.type === "assistant_message" && row.item.text.includes(marker)),
+  );
 }
 
 function assertFinished(result: WaitForFinishResult, expected: string): void {
@@ -32,7 +50,7 @@ async function connectCanaryClient(): Promise<DaemonClient> {
       password,
       clientId: `paseo-omp-canary-${randomUUID()}`,
       clientType: "cli",
-      appVersion: "0.9.2",
+      appVersion: "0.12.0",
       reconnect: { enabled: false },
     });
     try {
@@ -70,7 +88,7 @@ async function allowPendingPermissions(
     const request = current.final?.pendingPermissions[0];
     assert(request, "Permission status did not include a pending request");
     const action = request.actions?.find((candidate) => candidate.behavior === "allow");
-    await client.respondToPermission(agentId, request.id, {
+    await client.respondToPermissionAndWait(agentId, request.id, {
       behavior: "allow",
       ...(action ? { selectedActionId: action.id } : {}),
     });
@@ -251,9 +269,22 @@ try {
         entry.item.name === "Canary: Echo marker" &&
         entry.item.detail.type === "unknown" &&
         entry.item.status === "completed" &&
-        JSON.stringify(entry.item).includes("xd://mcp__canary_echo_marker"),
+        JSON.stringify(entry.item).includes("xd://mcpx__canary_echo_marker"),
     ),
-    "Configured MCP tool did not complete",
+    `Configured MCP tool did not complete; observed tool calls: ${JSON.stringify(
+      mcpTimeline.entries.flatMap(({ item }) =>
+        item.type === "tool_call"
+          ? [
+              {
+                name: item.name,
+                status: item.status,
+                detail: item.detail.type,
+                error: item.error,
+              },
+            ]
+          : [],
+      ),
+    )}`,
   );
   const mcpSnapshot = await client.fetchAgent(mcpAgent.id);
   const mcpPersistence = mcpSnapshot?.agent.persistence;
@@ -386,7 +417,7 @@ try {
     const deniedRequest = deniedResult.final?.pendingPermissions[0];
     assert(deniedRequest, "Deny scenario has no pending permission");
     const denyAction = deniedRequest.actions?.find((candidate) => candidate.behavior === "deny");
-    await client.respondToPermission(deniedAgent.id, deniedRequest.id, {
+    await client.respondToPermissionAndWait(deniedAgent.id, deniedRequest.id, {
       behavior: "deny",
       ...(denyAction ? { selectedActionId: denyAction.id } : {}),
     });
@@ -432,7 +463,7 @@ try {
     const request = canceledPermission.final?.pendingPermissions[0];
     assert(request, "Canceled permission status had no request");
     const denyAction = request.actions?.find((candidate) => candidate.behavior === "deny");
-    await client.respondToPermission(canceledPermissionAgent.id, request.id, {
+    await client.respondToPermissionAndWait(canceledPermissionAgent.id, request.id, {
       behavior: "deny",
       interrupt: true,
       ...(denyAction ? { selectedActionId: denyAction.id } : {}),
@@ -462,7 +493,23 @@ try {
   createdAgentIds.push(steered.id);
   await sleep(500);
   await client.sendAgentMessage(steered.id, "STEERED", { activeTurnBehavior: "steer" });
-  assertFinished(await client.waitForFinish(steered.id, 120_000), "CANARY_MOCK_OK");
+  const steeredResult = await client.waitForFinish(steered.id, 120_000);
+  assert(steeredResult.status === "idle", `Steered agent ended as ${steeredResult.status}`);
+  assert(steeredResult.error === null, `Steered agent failed: ${steeredResult.error}`);
+  const steeredTimeline = await client.fetchAgentTimeline(steered.id, {
+    direction: "tail",
+    limit: 200,
+    projection: "projected",
+  });
+  const userTurns = steeredTimeline.entries.flatMap((entry) =>
+    entry.item.type === "user_message" ? [{ text: entry.item.text, turnId: entry.turnId }] : [],
+  );
+  const initialTurn = userTurns.find((entry) => entry.text === "CANARY_DELAY");
+  const steerTurn = userTurns.find((entry) => entry.text === "STEERED");
+  assert(
+    initialTurn?.turnId && initialTurn.turnId === steerTurn?.turnId,
+    "Steer replaced the turn",
+  );
   summary.steer = true;
 
   const interrupted = await client.createAgent({
@@ -576,13 +623,8 @@ try {
       `Nested subagent ended as ${nestedChild.status}: ${JSON.stringify(nestedChildTimeline.rows)}`,
     );
     assert(
-      directTimeline.rows.some(
-        (row) =>
-          row.item.type === "tool_call" &&
-          row.item.name === "yield" &&
-          JSON.stringify(row.item.detail).includes("CANARY_NESTED_CHILD_OK"),
-      ),
-      `Direct subagent yield is missing from its timeline: ${JSON.stringify(directTimeline.rows)}`,
+      reportsSubagentResult(directTimeline.rows, "CANARY_NESTED_CHILD_OK"),
+      `Direct subagent result is missing from its timeline: ${JSON.stringify(directTimeline.rows)}`,
     );
     assert(
       !nestedChildTimeline.rows.some(
@@ -593,13 +635,8 @@ try {
       `Direct yield leaked into the nested subagent timeline: ${JSON.stringify(nestedChildTimeline.rows)}`,
     );
     assert(
-      nestedChildTimeline.rows.some(
-        (row) =>
-          row.item.type === "tool_call" &&
-          row.item.name === "yield" &&
-          JSON.stringify(row.item.detail).includes("CANARY_NESTED_LEAF_OK"),
-      ),
-      `Nested subagent yield is missing from its timeline: ${JSON.stringify(nestedChildTimeline.rows)}`,
+      reportsSubagentResult(nestedChildTimeline.rows, "CANARY_NESTED_LEAF_OK"),
+      `Nested subagent result is missing from its timeline: ${JSON.stringify(nestedChildTimeline.rows)}`,
     );
     summary.subagents = {
       passed: true,

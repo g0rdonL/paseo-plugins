@@ -12,8 +12,12 @@ const SEARCH_LIMIT = 100;
 const ENRICHMENT_BATCH_SIZE = 20;
 const COMMAND_TIMEOUT_MS = 15_000;
 const MAX_BUFFER_BYTES = 16 * 1024 * 1024;
-const statePath = join(homedir(), ".paseo", "plugin-data", "pr-radar", "inbox-state.json");
 const SCOPE_SEARCH_LIMIT = 1000;
+
+function statePath(): string {
+  const home = process.env.PASEO_HOME ?? join(homedir(), ".paseo");
+  return join(home, "plugin-data", "pr-radar", "inbox-state.json");
+}
 
 interface SearchRecord {
   id: string;
@@ -353,7 +357,7 @@ function toInboxItem(
 
 async function readState(): Promise<StoredState> {
   try {
-    const state = JSON.parse(await readFile(statePath, "utf8")) as StoredState;
+    const state = JSON.parse(await readFile(statePath(), "utf8")) as StoredState;
     if (state.version === 3 && state.windows && typeof state.windows === "object") return state;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
@@ -366,11 +370,12 @@ async function readState(): Promise<StoredState> {
 let writeSequence = 0;
 
 async function writeState(state: StoredState): Promise<void> {
-  await mkdir(dirname(statePath), { recursive: true });
+  const path = statePath();
+  await mkdir(dirname(path), { recursive: true });
   // Unique per write: overlapping writes must not rename each other's temp file away.
-  const temporaryPath = `${statePath}.${process.pid}.${++writeSequence}.tmp`;
+  const temporaryPath = `${path}.${process.pid}.${++writeSequence}.tmp`;
   await writeFile(temporaryPath, `${JSON.stringify(state)}\n`, { mode: 0o600 });
-  await rename(temporaryPath, statePath);
+  await rename(temporaryPath, path);
 }
 
 let stateQueue: Promise<unknown> = Promise.resolve();

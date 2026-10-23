@@ -6,13 +6,50 @@
 
 * Migrate PR Radar to Paseo 0.8 runtime entries.
 
-### Fork changes (1.3.0-fork.2)
+### Fork changes (3.0.0-fork.1, rebased on upstream 3.0.0)
 
 * Add an `owner` role that enumerates every private repository owned by the viewer
   via `gh repo list --visibility=private` + `gh pr list --repo` (the GitHub search
   index excludes private content from `user:`/`org:` queries). Owner is the
   lowest-priority role, so author/assignee/reviewer/mention still win on overlap.
   Surfacing via `viewerScope.ownedUrls` and the inbox item's `role: "owner"`.
+
+## [3.0.0](https://github.com/omercnet/paseo-plugins/compare/pr-radar-v2.0.0...pr-radar-v3.0.0) (2026-10-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **pr-radar:** requires Paseo ^0.12.0. The includeBackground option throws on older hosts.
+
+### Bug Fixes
+
+* **pr-radar:** include background workspaces and page agents stably ([#347](https://github.com/omercnet/paseo-plugins/issues/347)) ([8d8897b](https://github.com/omercnet/paseo-plugins/commit/8d8897ba6de2029bdb96eeb603db6214e41f72ae))
+
+## [2.0.0](https://github.com/omercnet/paseo-plugins/compare/pr-radar-v1.2.2...pr-radar-v2.0.0) (2026-10-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* the affected plugins no longer load on Paseo 0.9 or 0.10. Screen and sidebar IDs, params and settings are unchanged.
+
+### Features
+
+* require Paseo 0.11 and drop legacy surface navigation ([#286](https://github.com/omercnet/paseo-plugins/issues/286)) ([a46fe9e](https://github.com/omercnet/paseo-plugins/commit/a46fe9ee910c2cc485043d53c67dacf49bab402b))
+
+## [1.2.2](https://github.com/omercnet/paseo-plugins/compare/pr-radar-v1.2.1...pr-radar-v1.2.2) (2026-10-08)
+
+
+### Bug Fixes
+
+* **plugins:** ship OVERVIEW.md in published packages ([640f9a4](https://github.com/omercnet/paseo-plugins/commit/640f9a4d7bd6dbad226c4ee1ebaa199abfc62776))
+
+## [1.2.1](https://github.com/omercnet/paseo-plugins/compare/pr-radar-v1.2.0...pr-radar-v1.2.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **pr-radar:** honor PASEO_HOME for inbox state ([#283](https://github.com/omercnet/paseo-plugins/issues/283)) ([debe292](https://github.com/omercnet/paseo-plugins/commit/debe2927653212455e5f08d91028b83826867fd9))
+* **ui:** raise context-mode eyebrow contrast and fix radar empty-queue copy ([#290](https://github.com/omercnet/paseo-plugins/issues/290)) ([ed16e30](https://github.com/omercnet/paseo-plugins/commit/ed16e30efe09aef0c4ebdee9b6d69d25e0e3cb2e))
 
 ## [1.2.0](https://github.com/omercnet/paseo-plugins/compare/pr-radar-v1.1.0...pr-radar-v1.2.0) (2026-10-03)
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.2](https://github.com/omercnet/paseo-plugins/compare/tell-agent-v1.2.1...tell-agent-v1.2.2) (2026-10-20)
+
+
+### Bug Fixes
+
+* **plugins:** declare Paseo 0.12 compatibility ([7dbbe2a](https://github.com/omercnet/paseo-plugins/commit/7dbbe2a15aa7fb92ae846afa89a174cbed749f8e))
+
+## [1.2.1](https://github.com/omercnet/paseo-plugins/compare/tell-agent-v1.2.0...tell-agent-v1.2.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **plugins:** ship OVERVIEW.md in published packages ([640f9a4](https://github.com/omercnet/paseo-plugins/commit/640f9a4d7bd6dbad226c4ee1ebaa199abfc62776))
+
 ## [1.2.0](https://github.com/omercnet/paseo-plugins/compare/tell-agent-v1.1.0...tell-agent-v1.2.0) (2026-10-03)
 
 

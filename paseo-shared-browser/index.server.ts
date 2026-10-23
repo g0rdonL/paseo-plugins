@@ -8,13 +8,23 @@ import {
   handleAcquireControl,
   handleApplyDevicePreset,
   handleAttachBrowser,
+  handleBeginBrowserGesture,
   handleCaptureBrowser,
+  handleCloseBrowser,
+  handleCloseBrowserTab,
+  handleCreateBrowserTab,
   handleDetachBrowser,
+  handleEndBrowserGesture,
+  handleListBrowserTabs,
   handleListOpenBrowserWorkspaces,
   handleNavigateBrowser,
+  handleReadBrowserVideo,
   handleReleaseControl,
+  handleReopenBrowser,
   handleResizeBrowser,
   handleSendBrowserInput,
+  handleSetCaptureDensity,
+  handleUpdateBrowserGesture,
   handleWorkspaceArchived,
   issueAgentTicket,
   revokeAgentBrowserAccess,
@@ -24,14 +34,25 @@ import {
   acquireControlRpc,
   applyDevicePresetRpc,
   attachBrowserRpc,
+  beginBrowserGestureRpc,
   captureBrowserRpc,
+  closeBrowserRpc,
+  closeBrowserTabRpc,
+  createBrowserTabRpc,
   detachBrowserRpc,
+  endBrowserGestureRpc,
+  listBrowserTabsRpc,
   listOpenBrowserWorkspacesRpc,
   navigateBrowserRpc,
   releaseControlRpc,
+  reopenBrowserRpc,
   resizeBrowserRpc,
   sendBrowserInputRpc,
+  setCaptureDensityRpc,
+  updateBrowserGestureRpc,
 } from "./shared/browser";
+import { browserDisplayPreferences } from "./shared/browser-display-preferences";
+import { readBrowserVideoRpc } from "./shared/browser-video";
 
 const TICKET_ENV = "PASEO_SHARED_BROWSER_TICKET";
 const MCP_SERVER_ID = "shared-browser";
@@ -67,22 +88,29 @@ function mcpBundlePath(): string {
 }
 
 export default function contribute(server: PluginServerContext) {
+  server.registerSettings(browserDisplayPreferences);
   server.handle(attachBrowserRpc, handleAttachBrowser);
   server.handle(detachBrowserRpc, handleDetachBrowser);
+  server.handle(closeBrowserRpc, handleCloseBrowser);
+  server.handle(closeBrowserTabRpc, handleCloseBrowserTab);
+  server.handle(createBrowserTabRpc, handleCreateBrowserTab);
+  server.handle(listBrowserTabsRpc, handleListBrowserTabs);
+  server.handle(reopenBrowserRpc, handleReopenBrowser);
   server.handle(captureBrowserRpc, handleCaptureBrowser);
+  server.handle(setCaptureDensityRpc, handleSetCaptureDensity);
+  server.handle(readBrowserVideoRpc, handleReadBrowserVideo);
   server.handle(listOpenBrowserWorkspacesRpc, handleListOpenBrowserWorkspaces);
   server.handle(acquireControlRpc, handleAcquireControl);
   server.handle(releaseControlRpc, handleReleaseControl);
+  server.handle(beginBrowserGestureRpc, handleBeginBrowserGesture);
+  server.handle(updateBrowserGestureRpc, handleUpdateBrowserGesture);
+  server.handle(endBrowserGestureRpc, handleEndBrowserGesture);
   server.handle(navigateBrowserRpc, handleNavigateBrowser);
   server.handle(resizeBrowserRpc, handleResizeBrowser);
   server.handle(applyDevicePresetRpc, handleApplyDevicePreset);
   server.handle(sendBrowserInputRpc, handleSendBrowserInput);
-  // OMP accepts session MCP servers from Paseo 0.11.0-beta.1, the release that added
-  // registerUsageSource; 0.9/0.10 reject agent creation when an OMP config carries MCP servers.
-  const ompAcceptsMcp = typeof server.registerUsageSource === "function";
   server.before("agent.create", async ({ request }) => {
     if (request.config.internal) return request;
-    if (request.config.provider === "omp" && !ompAcceptsMcp) return request;
     const ticket = randomBytes(32).toString("base64url");
     if (!(await issueTicketWithinDeadline(ticket))) return request;
     return {

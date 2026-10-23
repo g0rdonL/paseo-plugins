@@ -133,7 +133,7 @@ describe("OMP direct provider", () => {
       type: "tool_execution_start",
       toolCallId: "mcp-route",
       toolName: "write",
-      args: { path: "xd://mcp__paseo_list_agents", content: "{}" },
+      args: { path: "xd://mcpx__paseo_list_agents", content: "{}" },
     });
     session.emit({
       type: "tool_execution_end",
@@ -155,20 +155,20 @@ describe("OMP direct provider", () => {
       status: "completed",
       detail: {
         type: "unknown",
-        input: { path: "xd://mcp__paseo_list_agents", content: "{}" },
+        input: { path: "xd://mcpx__paseo_list_agents", content: "{}" },
         output: { content: [{ type: "text", text: "agent-1" }] },
       },
     });
     session.emit({
       type: "tool_execution_start",
       toolCallId: "direct-mcp",
-      toolName: "mcp__paseo_list_providers",
+      toolName: "mcpx__paseo_list_providers",
       args: {},
     });
     session.emit({
       type: "tool_execution_end",
       toolCallId: "direct-mcp",
-      toolName: "mcp__paseo_list_providers",
+      toolName: "mcpx__paseo_list_providers",
       result: { content: [{ type: "text", text: "provider-1" }] },
     });
     const directMcpSnapshots = events.flatMap((event) =>
@@ -182,6 +182,30 @@ describe("OMP direct provider", () => {
     expect(directMcpSnapshots.at(-1)).toMatchObject({
       name: "Paseo list providers",
       status: "completed",
+    });
+    // Timelines persisted before the namespace rename still carry `mcp__`
+    // names, so replaying them must keep humanizing rather than show the raw
+    // wire name.
+    session.emit({
+      type: "tool_execution_start",
+      toolCallId: "legacy-mcp",
+      toolName: "mcp__paseo_list_sessions",
+      args: {},
+    });
+    session.emit({
+      type: "tool_execution_end",
+      toolCallId: "legacy-mcp",
+      toolName: "mcp__paseo_list_sessions",
+      result: { content: [{ type: "text", text: "session-1" }] },
+    });
+    const legacyMcpSnapshot = events.findLast(
+      (event) =>
+        event.type === "timeline.item" &&
+        event.item.type === "tool_call" &&
+        event.item.name === "Paseo list sessions",
+    );
+    expect(legacyMcpSnapshot).toMatchObject({
+      item: { name: "Paseo list sessions", status: "completed" },
     });
     session.emit({
       type: "tool_execution_start",

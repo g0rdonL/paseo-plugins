@@ -1,5 +1,5 @@
 import type { ProviderInput } from "@getpaseo/plugin/server/provider";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import type { OmpOperationalFailure } from "../server/operational-failure-diagnostics";
 import { mapOmpModels, ompModelId } from "../server/provider/catalog";
 import { OmpRpcRuntime } from "../server/provider/omp-rpc";
@@ -117,6 +117,140 @@ describe("OMP direct provider", () => {
       }),
     );
     await connection.close();
+  });
+
+  test("ignores daemon launch data so spawns keep the plugin-owned command and environment", async () => {
+    const runtime = new FakeOmpRuntime();
+    const provider = createOmpProvider({ environment: TEST_RUNTIME_ENV, runtime });
+    // A daemon resolves `launch` from provider overrides plus its entire process environment; it
+    // must not replace the names-only inherited environment or per-agent command resolution.
+    const connection = await provider.connect({
+      launch: {
+        command: "/daemon/resolved/omp",
+        args: ["--daemon-arg"],
+        env: { DAEMON_ONLY_SECRET: "daemon-secret", PATH: "/daemon/path" },
+      },
+      versions: [1],
+      capabilities: ["permission"],
+    });
+    const events = new EventLog();
+    connection.onEvent((event) => events.push(event));
+    await connection.send({ type: "catalog", requestId: "launch-catalog", cwd: "/repo" });
+    await events.waitFor(
+      (event) => event.type === "catalog" && event.requestId === "launch-catalog",
+    );
+    expect(runtime.starts[0]).toEqual(expect.objectContaining({ environment: TEST_RUNTIME_ENV }));
+    const serialized = JSON.stringify(runtime.starts);
+    for (const leaked of [
+      "daemon-secret",
+      "/daemon/resolved/omp",
+      "--daemon-arg",
+      "/daemon/path",
+    ]) {
+      expect(serialized).not.toContain(leaked);
+    }
+    await connection.close();
+  });
+
+  test("catalog cache identity ignores daemon launch data", async () => {
+    const provider = createOmpProvider({ environment: TEST_RUNTIME_ENV });
+    const base = { scope: "workspace" as const, cwd: "/repo", providerOptions: {}, settings: {} };
+    const launch = {
+      command: "/daemon/resolved/omp",
+      args: ["--daemon-arg"],
+      env: { DAEMON_ONLY_SECRET: "daemon-secret" },
+    };
+    const withoutLaunch = await provider.getCatalogCacheKey?.(base);
+    expect(withoutLaunch).toBeDefined();
+    await expect(provider.getCatalogCacheKey?.({ ...base, launch } as never)).resolves.toBe(
+      withoutLaunch,
+    );
+  });
+
+  describe("0.11 status", () => {
+    afterEach(() => vi.useRealTimers());
+
+    test("only a missing default executable makes the provider unavailable", async () => {
+      const statusFor = async (result: { status: string; diagnostic?: string }) =>
+        createOmpProvider({
+          runtime: new FakeOmpRuntime(),
+          availabilityProbe: async () => result as never,
+        }).status?.({});
+      await expect(statusFor({ status: "available" })).resolves.toEqual({ available: true });
+      await expect(statusFor({ status: "missing", diagnostic: "gone" })).resolves.toEqual({
+        available: false,
+        diagnostic: "gone",
+      });
+      // Slow, failing, or unrecognized probes are not proof that a differently launched agent fails.
+      await expect(statusFor({ status: "unrunnable", diagnostic: "timed out" })).resolves.toEqual({
+        available: true,
+        diagnostic: "timed out",
+      });
+      await expect(statusFor({ status: "incompatible", diagnostic: "no rpc-ui" })).resolves.toEqual(
+        { available: true, diagnostic: "no rpc-ui" },
+      );
+    });
+
+    test("probes the plugin-owned default launch and ignores the request launch", async () => {
+      const observed: unknown[] = [];
+      const provider = createOmpProvider({
+        runtime: new FakeOmpRuntime(),
+        availabilityProbe: async (options) => {
+          observed.push(options);
+          return { status: "available" };
+        },
+      });
+      await provider.status?.({
+        launch: { command: "/daemon/omp", args: ["--x"], env: { DAEMON_ONLY_SECRET: "s" } },
+      });
+      expect(observed).toEqual([{ scope: "global" }]);
+    });
+
+    test("shares one probe per interval and retries after a failed probe", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      let calls = 0;
+      let failNext = false;
+      const provider = createOmpProvider({
+        runtime: new FakeOmpRuntime(),
+        availabilityProbe: async () => {
+          calls += 1;
+          if (failNext) throw new Error("probe failed");
+          return { status: "available" };
+        },
+      });
+      await Promise.all([provider.status?.({}), provider.status?.({})]);
+      await provider.status?.({});
+      expect(calls).toBe(1);
+      vi.advanceTimersByTime(30_001);
+      failNext = true;
+      await expect(provider.status?.({})).rejects.toThrow("probe failed");
+      failNext = false;
+      await expect(provider.status?.({})).resolves.toEqual({ available: true });
+      expect(calls).toBe(3);
+    });
+
+    test("recovers on the next call after a missing executable is installed", async () => {
+      let installed = false;
+      let calls = 0;
+      const provider = createOmpProvider({
+        runtime: new FakeOmpRuntime(),
+        availabilityProbe: async () => {
+          calls += 1;
+          return installed
+            ? { status: "available" }
+            : { status: "missing", diagnostic: "OMP executable was not found" };
+        },
+      });
+      await expect(provider.status?.({})).resolves.toEqual({
+        available: false,
+        diagnostic: "OMP executable was not found",
+      });
+      // No time passes: an unavailable answer must not be remembered across calls.
+      installed = true;
+      await expect(provider.status?.({})).resolves.toEqual({ available: true });
+      await provider.status?.({});
+      expect(calls).toBe(2);
+    });
   });
 
   test("applies host environment names when opening direct provider sessions", async () => {
@@ -848,13 +982,13 @@ describe("OMP direct provider", () => {
     await session.close();
   });
 
-  test("rejects model 257 during initial session open", async () => {
+  test("rejects model 4097 during initial session open", async () => {
     const hiddenModel: OmpModel = { provider: "future-provider", id: "hidden-model" };
     const runtime = new FakeOmpRuntime();
     runtime.availableModels = [
       MODEL,
       ...Array.from(
-        { length: 255 },
+        { length: 4095 },
         (_, index): OmpModel => ({ provider: "provider", id: `model-${index}` }),
       ),
       hiddenModel,
@@ -890,7 +1024,7 @@ describe("OMP direct provider", () => {
     await connection.close();
   });
 
-  test("rebuilds a bounded public catalog when fallback selects model 257", async () => {
+  test("rebuilds a bounded public catalog when fallback selects model 4097", async () => {
     const runtime = new FakeOmpRuntime();
     const fallbackModel: OmpModel = {
       provider: "future-provider",
@@ -901,7 +1035,7 @@ describe("OMP direct provider", () => {
     runtime.availableModels = [
       MODEL,
       ...Array.from(
-        { length: 255 },
+        { length: 4095 },
         (_, index): OmpModel => ({ provider: "provider", id: `model-${index}` }),
       ),
       fallbackModel,
@@ -920,7 +1054,7 @@ describe("OMP direct provider", () => {
 
     const initialConfig = events.findLast((event) => event.type === "session.config");
     if (initialConfig?.type !== "session.config") throw new Error("Expected session config");
-    expect(initialConfig.config.models).toHaveLength(256);
+    expect(initialConfig.config.models).toHaveLength(4096);
     expect(
       initialConfig.config.models.some((model) => model.id === ompModelId(fallbackModel)),
     ).toBe(false);
@@ -946,7 +1080,7 @@ describe("OMP direct provider", () => {
     session.emit({ type: "retry_fallback_succeeded", model: "future", role: "default" });
     const fallbackConfig = await refreshed;
     if (fallbackConfig.type !== "session.config") throw new Error("Expected fallback config");
-    expect(fallbackConfig.config.models).toHaveLength(256);
+    expect(fallbackConfig.config.models).toHaveLength(4096);
     expect(
       fallbackConfig.config.models.some((model) => model.id === ompModelId(fallbackModel)),
     ).toBe(true);
@@ -958,7 +1092,7 @@ describe("OMP direct provider", () => {
       await startPrompt(
         connection,
         events,
-        "fallback-257-recovery",
+        "fallback-4097-recovery",
         "continue",
         "oversized-catalog-session",
       ),
@@ -972,7 +1106,7 @@ describe("OMP direct provider", () => {
     );
     const recoveredConfig = events.findLast((event) => event.type === "session.config");
     if (recoveredConfig?.type !== "session.config") throw new Error("Expected recovered config");
-    expect(recoveredConfig.config.models).toHaveLength(256);
+    expect(recoveredConfig.config.models).toHaveLength(4096);
     expect(
       recoveredConfig.config.models.some((model) => model.id === ompModelId(fallbackModel)),
     ).toBe(true);

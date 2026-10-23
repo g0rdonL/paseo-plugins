@@ -2,6 +2,8 @@ import type { ProviderSessionConfig } from "@getpaseo/plugin/server/provider";
 import { describe, expect, test } from "vitest";
 import type { OmpOperationalFailure } from "../server/operational-failure-diagnostics";
 import {
+  describeDegradedMcpServers,
+  HOST_TOOL_NAME_PREFIX,
   type OmpHostToolScheduler,
   OmpHostToolsBridge,
   type OmpMcpConnection,
@@ -26,6 +28,19 @@ function sessionConfig(overrides: Partial<ProviderSessionConfig> = {}): Provider
     persist: false,
     ...overrides,
   };
+}
+
+/** The Paseo-owned endpoint is the only required server. */
+function requiredServerConfig(
+  extra: ProviderSessionConfig["mcpServers"] = {},
+): ProviderSessionConfig {
+  return sessionConfig({
+    env: { PASEO_AGENT_ID: "agent-1", PASEO_WORKSPACE_ID: "workspace-1" },
+    mcpServers: {
+      paseo: { type: "http", url: "http://127.0.0.1:4567/mcp/agents?callerAgentId=agent-1" },
+      ...extra,
+    },
+  });
 }
 
 async function flushMicrotasks(): Promise<void> {
@@ -191,12 +206,12 @@ describe("OMP host tool bridge", () => {
         loadMode: "essential",
       }),
       expect.objectContaining({
-        name: "mcp__daemon_sibling_status",
+        name: "mcpx__daemon_sibling_status",
         label: "Daemon sibling: Status",
         loadMode: "essential",
       }),
       expect.objectContaining({
-        name: "mcp__repo_search",
+        name: "mcpx__repo_search",
         label: "Repo: Search",
         loadMode: "discoverable",
       }),
@@ -204,8 +219,8 @@ describe("OMP host tool bridge", () => {
     expect(bridge.labels).toEqual(
       new Map([
         ["create_agent", "Create agent"],
-        ["mcp__daemon_sibling_status", "Daemon sibling: Status"],
-        ["mcp__repo_search", "Repo: Search"],
+        ["mcpx__daemon_sibling_status", "Daemon sibling: Status"],
+        ["mcpx__repo_search", "Repo: Search"],
       ]),
     );
 
@@ -321,7 +336,7 @@ describe("OMP host tool bridge", () => {
       type: "host_tool_call",
       id: "structured-result",
       toolCallId: "tool-structured-result",
-      toolName: "mcp__repo_inspect",
+      toolName: "mcpx__repo_inspect",
       arguments: {},
     });
     await flushMicrotasks();
@@ -358,7 +373,7 @@ describe("OMP host tool bridge", () => {
       type: "host_tool_call",
       id: "oversized-details",
       toolCallId: "tool-oversized-details",
-      toolName: "mcp__repo_inspect",
+      toolName: "mcpx__repo_inspect",
       arguments: {},
     });
     await flushMicrotasks();
@@ -399,7 +414,7 @@ describe("OMP host tool bridge", () => {
       type: "host_tool_call",
       id: "frame-details",
       toolCallId: "tool-frame-details",
-      toolName: "mcp__repo_inspect",
+      toolName: "mcpx__repo_inspect",
       arguments: {},
     });
     await flushMicrotasks();
@@ -435,7 +450,7 @@ describe("OMP host tool bridge", () => {
       type: "host_tool_call",
       id,
       toolCallId: "tool-minimum-frame",
-      toolName: "mcp__repo_inspect",
+      toolName: "mcpx__repo_inspect",
       arguments: {},
     });
     await flushMicrotasks();
@@ -467,7 +482,7 @@ describe("OMP host tool bridge", () => {
       type: "host_tool_call",
       id: "multibyte-text",
       toolCallId: "tool-multibyte-text",
-      toolName: "mcp__repo_inspect",
+      toolName: "mcpx__repo_inspect",
       arguments: {},
     });
     await flushMicrotasks();
@@ -508,7 +523,7 @@ describe("OMP host tool bridge", () => {
         type: "host_tool_call",
         id: `oversized-content-${index}`,
         toolCallId: `tool-oversized-content-${index}`,
-        toolName: "mcp__repo_inspect",
+        toolName: "mcpx__repo_inspect",
         arguments: {},
       });
       await flushMicrotasks();
@@ -583,7 +598,7 @@ describe("OMP host tool bridge", () => {
     expect(observed[0]).toBe("paseo");
     expect(names.filter((name) => name === "create_agent")).toEqual(["create_agent"]);
     expect(new Set(names).size).toBe(3);
-    expect(names.slice(1).every((name) => name.startsWith("mcp__external_paseo_"))).toBe(true);
+    expect(names.slice(1).every((name) => name.startsWith("mcpx__external_paseo_"))).toBe(true);
     await bridge.close();
   });
 
@@ -709,7 +724,7 @@ describe("OMP host tool bridge", () => {
         type: "host_tool_call",
         id: `call-${index}`,
         toolCallId: `tool-${index}`,
-        toolName: "mcp__repo_read",
+        toolName: "mcpx__repo_read",
         arguments: { key: `first-${index}` },
       });
     }
@@ -717,7 +732,7 @@ describe("OMP host tool bridge", () => {
       type: "host_tool_call",
       id: "saturated",
       toolCallId: "tool-saturated",
-      toolName: "mcp__repo_read",
+      toolName: "mcpx__repo_read",
       arguments: { key: "saturated" },
     });
     expect(connection.calls).toHaveLength(64);
@@ -730,7 +745,7 @@ describe("OMP host tool bridge", () => {
       type: "host_tool_call",
       id: "call-0",
       toolCallId: "tool-reused",
-      toolName: "mcp__repo_read",
+      toolName: "mcpx__repo_read",
       arguments: { key: "replacement" },
     });
     await flushMicrotasks();
@@ -745,7 +760,7 @@ describe("OMP host tool bridge", () => {
       type: "host_tool_call",
       id: "oversized",
       toolCallId: "tool-oversized",
-      toolName: "mcp__repo_read",
+      toolName: "mcpx__repo_read",
       arguments: { payload: "x".repeat(8 * 1024 * 1024) },
     });
     expect(runtime.results.at(-1)).toEqual(
@@ -791,7 +806,7 @@ describe("OMP host tool bridge", () => {
       type: "host_tool_call",
       id: "absolute-timeout",
       toolCallId: "tool-absolute-timeout",
-      toolName: "mcp__repo_long",
+      toolName: "mcpx__repo_long",
       arguments: {},
     });
     progressCallbacks[0]?.({ progress: 1 });
@@ -817,7 +832,7 @@ describe("OMP host tool bridge", () => {
       type: "host_tool_call",
       id: "after-timeout",
       toolCallId: "tool-after-timeout",
-      toolName: "mcp__repo_long",
+      toolName: "mcpx__repo_long",
       arguments: {},
     });
     expect(connection.calls).toHaveLength(2);
@@ -872,7 +887,7 @@ describe("OMP host tool bridge", () => {
         type: "host_tool_call",
         id: "malformed",
         toolCallId: "tool-malformed",
-        toolName: "mcp__repo_read",
+        toolName: "mcpx__repo_read",
         arguments: {},
       });
       await flushMicrotasks();
@@ -919,7 +934,7 @@ describe("OMP host tool bridge", () => {
       type: "host_tool_call",
       id: "rejected-call",
       toolCallId: "tool-rejected-call",
-      toolName: "mcp__repo_read",
+      toolName: "mcpx__repo_read",
       arguments: {},
     });
     await flushMicrotasks();
@@ -957,18 +972,15 @@ describe("OMP host tool bridge", () => {
     await bridge.bind(runtime as unknown as OmpRuntimeSession);
     expect(cursors).toEqual([undefined, "page-2"]);
     expect(runtime.catalogs[0]?.map(({ name }) => name)).toEqual([
-      "mcp__repo_one",
-      "mcp__repo_two",
+      "mcpx__repo_one",
+      "mcpx__repo_two",
     ]);
     await bridge.close();
 
     const repeated = new FakeConnection([], { content: [] });
     repeated.listTools = async () => ({ tools: [], nextCursor: "same" });
     await expect(
-      OmpHostToolsBridge.open(
-        sessionConfig({ mcpServers: { repeated: { type: "stdio", command: "repeat" } } }),
-        { connectMcp: async () => repeated },
-      ),
+      OmpHostToolsBridge.open(requiredServerConfig(), { connectMcp: async () => repeated }),
     ).rejects.toThrow("repeated a tool-list cursor");
     expect(repeated.closes).toBe(1);
   });
@@ -987,10 +999,7 @@ describe("OMP host tool bridge", () => {
       };
     };
     await expect(
-      OmpHostToolsBridge.open(
-        sessionConfig({ mcpServers: { overflow: { type: "stdio", command: "overflow" } } }),
-        { connectMcp: async () => overflow },
-      ),
+      OmpHostToolsBridge.open(requiredServerConfig(), { connectMcp: async () => overflow }),
     ).rejects.toThrow("tool count exceeds");
     expect(overflow.closes).toBe(1);
 
@@ -1003,12 +1012,253 @@ describe("OMP host tool bridge", () => {
       { content: [] },
     );
     await expect(
-      OmpHostToolsBridge.open(
-        sessionConfig({ mcpServers: { large: { type: "stdio", command: "large" } } }),
-        { connectMcp: async () => largeCatalog },
-      ),
+      OmpHostToolsBridge.open(requiredServerConfig(), { connectMcp: async () => largeCatalog }),
     ).rejects.toThrow("catalog exceeds the RPC frame limit");
     expect(largeCatalog.closes).toBe(1);
+  });
+
+  test("skips an optional server that fails to connect, list, or validate and keeps the rest", async () => {
+    const failures: OmpOperationalFailure[] = [];
+    const healthy = new FakeConnection([{ name: "read", inputSchema: { type: "object" } }], {
+      content: [],
+    });
+    const required = new FakeConnection(
+      [{ name: "create_agent", inputSchema: { type: "object" } }],
+      { content: [] },
+    );
+    const listFails = new FakeConnection([], { content: [] });
+    listFails.listTools = async () => {
+      throw new Error("supervisor token abc123 is missing");
+    };
+    const invalid = new FakeConnection(
+      [
+        { name: "fine", inputSchema: { type: "object" } },
+        { name: "zbad", inputSchema: [] as unknown as Record<string, unknown> },
+      ],
+      { content: [] },
+    );
+    const connections: Record<string, OmpMcpConnection> = {
+      paseo: required,
+      healthy,
+      "list-fails": listFails,
+      invalid,
+    };
+    const bridge = await OmpHostToolsBridge.open(
+      requiredServerConfig({
+        "connect-fails": { type: "stdio", command: "a" },
+        healthy: { type: "stdio", command: "b" },
+        "list-fails": { type: "stdio", command: "c" },
+        invalid: { type: "stdio", command: "d" },
+      }),
+      {
+        connectMcp: async (name) => {
+          const connection = connections[name];
+          if (!connection) throw new Error("connect refused: secret-value");
+          return connection;
+        },
+        reportOperationalFailure: (failure) => failures.push(failure),
+      },
+    );
+    const runtime = new FakeRuntime();
+    await bridge.bind(runtime as unknown as OmpRuntimeSession);
+
+    expect(runtime.catalogs[0]?.map(({ name }) => name)).toEqual([
+      "create_agent",
+      "mcpx__healthy_read",
+    ]);
+    expect(bridge.degraded).toEqual([
+      { name: "connect-fails", reason: "unavailable" },
+      { name: "invalid", reason: "invalid-tools" },
+      { name: "list-fails", reason: "unavailable" },
+    ]);
+    expect(failures).toEqual(
+      Array.from({ length: 3 }, () => ({ category: "session-open", stage: "optional-mcp" })),
+    );
+    expect(JSON.stringify(bridge.degraded)).not.toMatch(/secret|token|abc123/u);
+    // The invalid server's accepted-looking tool must not leak into the catalog.
+    expect(runtime.catalogs[0]?.some(({ name }) => name.includes("fine"))).toBe(false);
+    expect(listFails.closes).toBe(1);
+    expect(invalid.closes).toBe(1);
+    await bridge.close();
+    expect(healthy.closes).toBe(1);
+    expect(invalid.closes).toBe(1);
+  });
+
+  test("keeps tool names stable when an earlier optional server is skipped", async () => {
+    const tools = [{ name: "read", inputSchema: { type: "object" } }];
+    const open = async (broken: boolean) => {
+      const bridge = await OmpHostToolsBridge.open(
+        sessionConfig({
+          mcpServers: {
+            alpha: { type: "stdio", command: "alpha" },
+            beta: { type: "stdio", command: "beta" },
+          },
+        }),
+        {
+          connectMcp: async (name) => {
+            if (broken && name === "alpha") throw new Error("down");
+            return new FakeConnection(tools, { content: [] });
+          },
+        },
+      );
+      const runtime = new FakeRuntime();
+      await bridge.bind(runtime as unknown as OmpRuntimeSession);
+      await bridge.close();
+      return runtime.catalogs[0]?.map(({ name }) => name) ?? [];
+    };
+
+    expect(await open(true)).toEqual(["mcpx__beta_read"]);
+    expect(await open(false)).toEqual(["mcpx__alpha_read", "mcpx__beta_read"]);
+  });
+
+  test("fails the open when the required Paseo server cannot connect", async () => {
+    const optional = new FakeConnection([], { content: [] });
+    await expect(
+      OmpHostToolsBridge.open(requiredServerConfig({ optional: { type: "stdio", command: "o" } }), {
+        connectMcp: async (name) => {
+          if (name === "paseo") throw new Error("daemon unreachable");
+          return optional;
+        },
+      }),
+    ).rejects.toThrow("could not initialize configured MCP host tools");
+  });
+
+  test("honors cancellation while closing a skipped optional server", async () => {
+    const closing = Promise.withResolvers<void>();
+    const closeStarted = Promise.withResolvers<void>();
+    const stuck = new FakeConnection([], { content: [] });
+    stuck.listTools = async () => {
+      throw new Error("list failed");
+    };
+    stuck.close = async () => {
+      stuck.closes += 1;
+      closeStarted.resolve();
+      await closing.promise;
+    };
+    const caller = new AbortController();
+    const opening = OmpHostToolsBridge.open(
+      sessionConfig({ mcpServers: { stuck: { type: "stdio", command: "stuck" } } }),
+      { connectMcp: async () => stuck, signal: caller.signal },
+    );
+    const outcome = opening.then(
+      () => "opened",
+      (error: unknown) => (error instanceof OmpCleanupFailure ? "cleanup-pending" : "failed"),
+    );
+    await closeStarted.promise;
+    caller.abort(new Error("canceled"));
+
+    expect(await outcome).toBe("cleanup-pending");
+    expect(stuck.closes).toBe(1);
+    closing.resolve();
+  });
+
+  test("degrades a hung optional server at its own cap and keeps the rest", async () => {
+    const healthy = new FakeConnection([{ name: "read", inputSchema: { type: "object" } }], {
+      content: [],
+    });
+    const bridge = await OmpHostToolsBridge.open(
+      sessionConfig({
+        mcpServers: {
+          hung: { type: "stdio", command: "hung" },
+          ok: { type: "stdio", command: "ok" },
+        },
+      }),
+      {
+        connectMcp: (name, _config, _cwd, signal) => {
+          if (name !== "hung") return Promise.resolve(healthy);
+          const connecting = Promise.withResolvers<OmpMcpConnection>();
+          signal.addEventListener("abort", () => connecting.reject(new Error("aborted")), {
+            once: true,
+          });
+          return connecting.promise;
+        },
+        optionalServerTimeoutMs: 5,
+      },
+    );
+    const runtime = new FakeRuntime();
+    await bridge.bind(runtime as unknown as OmpRuntimeSession);
+
+    expect(bridge.degraded).toEqual([{ name: "hung", reason: "timed-out" }]);
+    expect(runtime.catalogs[0]?.map(({ name }) => name)).toEqual(["mcpx__ok_read"]);
+    await bridge.close();
+  });
+
+  test("keeps nested transport cleanup ownership when an optional server times out", async () => {
+    const transportCleanup = Promise.reject<void>(new Error("transport still running"));
+    transportCleanup.catch(() => undefined);
+    await expect(
+      OmpHostToolsBridge.open(
+        sessionConfig({ mcpServers: { slow: { type: "stdio", command: "slow" } } }),
+        {
+          optionalServerTimeoutMs: 5,
+          connectMcp: (_name, _config, _cwd, signal) => {
+            const connecting = Promise.withResolvers<OmpMcpConnection>();
+            signal.addEventListener(
+              "abort",
+              () =>
+                connecting.reject(
+                  new OmpCleanupFailure("transport cleanup pending", transportCleanup),
+                ),
+              { once: true },
+            );
+            return connecting.promise;
+          },
+        },
+      ),
+    ).rejects.toBeInstanceOf(OmpCleanupFailure);
+  });
+
+  test("keeps cleanup ownership when a skipped optional server cannot close", async () => {
+    const stuck = new FakeConnection([], { content: [] });
+    stuck.closeError = new Error("close failed");
+    stuck.listTools = async () => {
+      throw new Error("list failed");
+    };
+    await expect(
+      OmpHostToolsBridge.open(
+        sessionConfig({ mcpServers: { stuck: { type: "stdio", command: "stuck" } } }),
+        { connectMcp: async () => stuck },
+      ),
+    ).rejects.toBeInstanceOf(OmpCleanupFailure);
+    expect(stuck.closes).toBe(1);
+  });
+
+  test("retries a previously skipped server on the next open", async () => {
+    let attempts = 0;
+    const connector: OmpMcpConnector = async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("not ready");
+      return new FakeConnection([{ name: "read", inputSchema: { type: "object" } }], {
+        content: [],
+      });
+    };
+    const config = sessionConfig({ mcpServers: { repo: { type: "stdio", command: "repo" } } });
+    const first = await OmpHostToolsBridge.open(config, { connectMcp: connector });
+    const second = await OmpHostToolsBridge.open(config, { connectMcp: connector });
+
+    expect(first.degraded).toEqual([{ name: "repo", reason: "unavailable" }]);
+    expect(second.degraded).toEqual([]);
+    await first.close();
+    await second.close();
+  });
+
+  test("describes skipped servers with bounded names and a fixed reason vocabulary", () => {
+    const text = describeDegradedMcpServers([
+      { name: "bad\nname\u0000".repeat(30), reason: "timed-out" },
+      ...Array.from({ length: 6 }, (_, index) => ({
+        name: `server-${index}`,
+        reason: "unavailable" as const,
+      })),
+    ]);
+
+    expect(text).toContain("7 MCP servers were skipped");
+    expect(text).toContain("(timed out)");
+    expect(text).toContain("and 2 more");
+    expect(text.includes("\n") || text.includes("\u0000")).toBe(false);
+    expect(text).not.toContain("server-5");
+    expect(describeDegradedMcpServers([{ name: "solo", reason: "invalid-tools" }])).toBe(
+      "1 MCP server was skipped: solo (invalid tool list). Their tools are missing from this session. Reopen the agent after fixing them.",
+    );
   });
 
   test("preserves Windows and WSL workspace paths at the host connector boundary", async () => {
@@ -1048,7 +1298,7 @@ describe("OMP host tool bridge", () => {
         type: "host_tool_call",
         id,
         toolCallId: `tool-${id}`,
-        toolName: "mcp__repo_read",
+        toolName: "mcpx__repo_read",
         arguments: {},
       });
       await flushMicrotasks();
@@ -1088,7 +1338,7 @@ describe("OMP host tool bridge", () => {
       type: "host_tool_call",
       id: "saturated-result",
       toolCallId: "tool-saturated-result",
-      toolName: "mcp__repo_read",
+      toolName: "mcpx__repo_read",
       arguments: {},
     });
     await expect(failed.promise).resolves.toEqual(
@@ -1103,7 +1353,7 @@ describe("OMP host tool bridge", () => {
       type: "host_tool_call",
       id: "after-drain",
       toolCallId: "tool-after-drain",
-      toolName: "mcp__repo_read",
+      toolName: "mcpx__repo_read",
       arguments: {},
     });
     await flushMicrotasks();
@@ -1168,5 +1418,47 @@ describe("OMP host tool bridge", () => {
         env: { PASEO_AGENT_ID: "spoofed", PASEO_WORKSPACE_ID: "spoofed" },
       }).env,
     ).toEqual({ PASEO_AGENT_ID: "agent-legacy" });
+  });
+
+  test("keeps registered host tools out of the namespace OMP reclaims", async () => {
+    // Two names that are valid at the source (within the 256-byte limit) but
+    // overflow once namespaced, and that stay identical past the truncation
+    // cut. Uniqueness then holds only because the truncated form carries a
+    // per-tool digest.
+    const sharedLongPrefix = `search_${"x".repeat(240)}`;
+    const repo = new FakeConnection(
+      [
+        { name: "search", description: "Search", inputSchema: { type: "object" } },
+        { name: `${sharedLongPrefix}a`, description: "Long A", inputSchema: { type: "object" } },
+        { name: `${sharedLongPrefix}b`, description: "Long B", inputSchema: { type: "object" } },
+      ],
+      { content: [] },
+    );
+    const connector: OmpMcpConnector = async (name) =>
+      name === "repo" ? repo : new FakeConnection([], { content: [] });
+    const config = requiredServerConfig({
+      repo: { type: "stdio", command: "repo-mcp" },
+    });
+
+    const bridge = await OmpHostToolsBridge.open(config, { connectMcp: connector });
+    const runtime = new FakeRuntime();
+    await bridge.bind(runtime as unknown as OmpRuntimeSession);
+
+    // OMP's `isMCPToolName` claims the whole `mcp__` namespace, and every
+    // `refreshMCPTools` deletes it before rebuilding from manager- and
+    // extension-owned tools. A host tool named that way is accepted by
+    // `set_host_tools` and then silently dropped, so it must never be used.
+    // The literal prefix is OMP's contract, so it is spelled out rather than
+    // imported from the constant this plugin controls.
+    const registered = (runtime.catalogs[0] ?? []).map(({ name }) => name);
+    expect(registered).toHaveLength(3);
+    expect(registered.some((name) => name.startsWith("mcp__"))).toBe(false);
+    expect(registered).toContain(`${HOST_TOOL_NAME_PREFIX}repo_search`);
+    // Truncated names keep the prefix, stay unique, and stay within bounds.
+    expect(new Set(registered).size).toBe(registered.length);
+    for (const name of registered) {
+      expect(name.startsWith(HOST_TOOL_NAME_PREFIX)).toBe(true);
+      expect(Buffer.byteLength(name, "utf8")).toBeLessThanOrEqual(256);
+    }
   });
 });

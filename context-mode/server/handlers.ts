@@ -1,3 +1,5 @@
+import { homedir } from "node:os";
+import { join } from "node:path";
 import type { PluginSettings } from "@getpaseo/plugin/server";
 import type {
   BinaryStatus,
@@ -8,7 +10,12 @@ import type {
   IntegrationAudit,
 } from "../shared";
 import { type BinaryResolution, type LaunchDescriptor, resolveContextModeBinary } from "./binary";
-import { createIntegrationAudit } from "./integration";
+import {
+  createIntegrationAudit,
+  type IntegrationDependencies,
+  type ProviderConfigSource,
+  readProviderOverrides,
+} from "./integration";
 import {
   callContextModeTool,
   inspectContextMode,
@@ -20,14 +27,33 @@ type SettingsHandle = PluginSettings<typeof contextModeSettings.schema>;
 type ToolName = "ctx_doctor" | "ctx_stats";
 type FailureReport = Extract<CommandReport, { state: "unavailable" }>;
 
+interface ProbeOptions {
+  env: NodeJS.ProcessEnv;
+}
+
+/**
+ * Panel probes belong to no provider. Without an explicit storage root Context Mode falls back to
+ * whichever provider config directory exists, and writes its sidecar and content store there.
+ */
+function contextModeProbeOptions(env: NodeJS.ProcessEnv = process.env): ProbeOptions {
+  const home = env.PASEO_HOME?.trim() || join(homedir(), ".paseo");
+  return { env: { CONTEXT_MODE_DIR: join(home, "plugin-data", "context-mode", "probe") } };
+}
+
 export interface ContextModeHandlerDependencies {
   now?: () => Date;
   resolveBinary?: (settings: ContextModeSettings) => Promise<BinaryResolution>;
-  inspect?: (launch: LaunchDescriptor) => Promise<McpInspection>;
-  callTool?: (launch: LaunchDescriptor, name: ToolName) => Promise<string>;
+  inspect?: (launch: LaunchDescriptor, options: ProbeOptions) => Promise<McpInspection>;
+  callTool?: (
+    launch: LaunchDescriptor,
+    name: ToolName,
+    arguments_: Record<string, never>,
+    options: ProbeOptions,
+  ) => Promise<string>;
   createAudit?: (
     settings: ContextModeSettings,
     runtime: { path: string; version: string | null },
+    dependencies?: IntegrationDependencies,
   ) => Promise<IntegrationAudit>;
 }
 
@@ -35,7 +61,10 @@ export interface ContextModeHandlers {
   status(input: ContextModeRefreshInput): Promise<BinaryStatus>;
   doctor(input: ContextModeRefreshInput): Promise<CommandReport>;
   stats(input: ContextModeRefreshInput): Promise<CommandReport>;
-  audit(input: ContextModeRefreshInput): Promise<IntegrationAudit>;
+  audit(
+    input: ContextModeRefreshInput,
+    context?: { paseo?: ProviderConfigSource },
+  ): Promise<IntegrationAudit>;
 }
 
 interface CacheEntry<T> {
@@ -62,6 +91,7 @@ export function createContextModeHandlers(
   const callTool = dependencies.callTool ?? callContextModeTool;
   const buildAudit = dependencies.createAudit ?? createIntegrationAudit;
   const cache = new Map<string, CacheEntry<BinaryStatus | CommandReport>>();
+  const probe = contextModeProbeOptions();
 
   async function settingsAndBinary(): Promise<
     | {
@@ -136,7 +166,7 @@ export function createContextModeHandlers(
     return cached(cacheKey, 10_000, fresh, async () => {
       const checkedAt = now().toISOString();
       try {
-        const inspection = await inspect(resolved.binary.launch);
+        const inspection = await inspect(resolved.binary.launch, probe);
         return {
           state: "ready",
           binaryPath: resolved.binary.path,
@@ -161,7 +191,7 @@ export function createContextModeHandlers(
         return {
           state: "ready",
           binaryPath: resolved.binary.path,
-          output: await callTool(resolved.binary.launch, name),
+          output: await callTool(resolved.binary.launch, name, {}, probe),
           checkedAt,
         };
       } catch (error) {
@@ -170,7 +200,10 @@ export function createContextModeHandlers(
     });
   }
 
-  async function audit(_input: ContextModeRefreshInput): Promise<IntegrationAudit> {
+  async function audit(
+    _input: ContextModeRefreshInput,
+    context?: { paseo?: ProviderConfigSource },
+  ): Promise<IntegrationAudit> {
     const resolved = await settingsAndBinary();
     if (resolved.state === "unavailable") {
       return {
@@ -181,14 +214,15 @@ export function createContextModeHandlers(
         checkedAt: resolved.report.checkedAt,
       };
     }
-    const inspection = await inspect(resolved.binary.launch).catch(() => ({
+    const inspection = await inspect(resolved.binary.launch, probe).catch(() => ({
       version: null,
       tools: [],
     }));
-    return buildAudit(resolved.settings, {
-      path: resolved.binary.path,
-      version: inspection.version,
-    });
+    return buildAudit(
+      resolved.settings,
+      { path: resolved.binary.path, version: inspection.version },
+      { providers: await readProviderOverrides(context?.paseo) },
+    );
   }
 
   return {

@@ -73,24 +73,24 @@ shown without hiding the failure.
 
 ## Active crews sidebar row
 
-On Paseo 0.11 and later, an **Active crews** sidebar header row counts the crews that have a member
+An **Active crews** sidebar header row counts the crews that have a member
 working or waiting for input. Pressing it lists those crews with their workspace; choosing one opens
 that workspace's Agent Crew panel in the Explorer. The list is a popover on wide layouts and a
 bottom sheet on compact ones. Paseo's compact layout does not show Explorer panels, so there the
 jump lands on the workspace. Hide the row from Settings > Sidebar.
 
 The row reads the same directory query and subscriptions as the panel, so they stay active while
-the sidebar is mounted. Paseo 0.9 and 0.10 do not support sidebar items; the row is not registered
-there.
+the sidebar is mounted.
 
 ## How it reads state
 
 `usePaseo().agents.list()` and `usePaseo().workspaces.list()` page the selected daemon directory at
 200 entries per page, up to 10 pages. Parent relationships come from the first-class
 `parentAgentId` field when the public SDK exposes it, with a legacy label fallback for older
-snapshots. The workspace crew contains local agents, their managed descendants, and only the foreign
-ancestor paths needed to explain local membership. Archived agents are omitted, malformed parent
-cycles are bounded, and siblings are ordered by actionable state, creation time, then ID.
+snapshots. Background workspaces are included. The workspace crew contains local agents, their
+managed descendants, and only the foreign ancestor paths needed to explain local membership.
+Archived agents are omitted, malformed parent cycles are bounded, and siblings are ordered by
+actionable state, creation time, then ID.
 
 State precedence is:
 
@@ -147,7 +147,7 @@ bun run test:coverage
 bun run typecheck
 ```
 
-The manifest supports Paseo `^0.9.0 || ^0.10.0 || ^0.11.0`. Development pins the stable 0.9 SDK line; nightly compatibility checks run the OMP provider against both the current stable and beta SDK channels. React 19.1 and React Native 0.81 match the host.
+The manifest requires Paseo `^0.12.0`. Development pins the 0.12 SDK line through the workspace catalog; nightly compatibility checks run the OMP provider against the beta SDK channel. React 19.1 and React Native 0.81 match the host.
 
 Release Please maintains versions, changelog entries, component tags, and GitHub releases from
 Conventional Commits in the monorepo.

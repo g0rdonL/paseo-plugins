@@ -47,7 +47,7 @@ Status meanings:
 | [#4047](https://github.com/getpaseo/paseo/issues/4047), [PR #4048](https://github.com/getpaseo/paseo/pull/4048) | **Verified** | Stdin EPIPE and stream closure fail pending calls and enter bounded cleanup/recovery rather than crashing the daemon. |
 | [#1657](https://github.com/getpaseo/paseo/issues/1657), [#1730](https://github.com/getpaseo/paseo/issues/1730), [#2226](https://github.com/getpaseo/paseo/issues/2226), [#4142](https://github.com/getpaseo/paseo/issues/4142), [PR #4008](https://github.com/getpaseo/paseo/pull/4008), [PR #4143](https://github.com/getpaseo/paseo/pull/4143) | **Verified** | Availability and ready probes use bounded configurable timeouts and distinguish missing, unrunnable, incompatible, and available binaries. |
 | [#1446](https://github.com/getpaseo/paseo/issues/1446), [#2456](https://github.com/getpaseo/paseo/issues/2456) | **Mitigated / host-owned** | Plugin discovery and cache identity are bounded. Provider snapshot scheduling and stale host snapshots remain Paseo behavior. |
-| [#4781](https://github.com/getpaseo/paseo/issues/4781), [PR #5298](https://github.com/getpaseo/paseo/pull/5298) | **Verified host containment with retained plugin serialization** | The pinned Paseo 0.9.2 provider adapter is exercised with an early `request.failed` emitted before `send()` settles: the operation returns its original error, no unhandled rejection occurs, and a follow-up catalog request succeeds. `OmpNativeSessionReservations` remains required because it serializes persistent OMP native-session registration before identity is known; its FIFO, cancellation, duplicate-ownership, and cleanup-quarantine behavior are independently covered. |
+| [#4781](https://github.com/getpaseo/paseo/issues/4781), [PR #5298](https://github.com/getpaseo/paseo/pull/5298) | **Verified host containment with retained plugin serialization** | The installed Paseo provider adapter is exercised with an early `request.failed` emitted before `send()` settles: the operation returns its original error, no unhandled rejection occurs, and a follow-up catalog request succeeds. `OmpNativeSessionReservations` remains required because it serializes persistent OMP native-session registration before identity is known; its FIFO, cancellation, duplicate-ownership, and cleanup-quarantine behavior are independently covered. |
 | [#2610](https://github.com/getpaseo/paseo/issues/2610) | **Mitigated / host-owned** | OMP input frames, replay, and retained state are bounded; final daemon-to-client WebSocket buffering is owned by Paseo. |
 
 | [PR #5253](https://github.com/getpaseo/paseo/pull/5253), [PR #5231](https://github.com/getpaseo/paseo/pull/5231), [PR #5298](https://github.com/getpaseo/paseo/pull/5298) | **Host-owned, verified compatible** | Daemon shutdown now closes provider sessions before stopping plugins, reload waits for a close already in flight, and early `request.failed` events no longer crash the daemon. The plugin already serializes persistent opens, reports request failures, and awaits session cleanup; its full typecheck passes against the published 0.10 beta SDK. |
@@ -96,9 +96,9 @@ Status meanings:
 
 [#1176](https://github.com/getpaseo/paseo/issues/1176), [#1189](https://github.com/getpaseo/paseo/issues/1189), [PR #1177](https://github.com/getpaseo/paseo/pull/1177), [PR #1388](https://github.com/getpaseo/paseo/pull/1388), and [PR #2067](https://github.com/getpaseo/paseo/pull/2067) requested or introduced first-class OMP support. The plugin satisfies that product goal independently under `omp-plugin`; it does not replace or migrate bundled `omp` agents.
 
-## Release blockers and tracked gaps
+## Tracked gaps
 
-Before moving from alpha toward stable, track these separately:
+The plugin is stable. Track these remaining gaps separately from supported functionality:
 
 1. Decide whether native Fast mode can be represented honestly through the public provider SDK.
 2. Decide whether a first-class plan mode is possible; separately make `/handoff` reproducible in the controlled canary.

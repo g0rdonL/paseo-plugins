@@ -10,6 +10,42 @@
 
 * **settings:** stop exposing the non-persistent Remember last bucket option
 
+## [3.0.0](https://github.com/omercnet/paseo-plugins/compare/agent-monitor-v2.0.0...agent-monitor-v3.0.0) (2026-10-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **agent-monitor:** requires Paseo ^0.12.0. The includeBackground option throws on older hosts.
+
+### Bug Fixes
+
+* **agent-monitor:** include background workspaces and page agents stably ([#346](https://github.com/omercnet/paseo-plugins/issues/346)) ([731b6f6](https://github.com/omercnet/paseo-plugins/commit/731b6f62626030e18987d690b5549e423cf2d6f7))
+
+## [2.0.0](https://github.com/omercnet/paseo-plugins/compare/agent-monitor-v1.2.2...agent-monitor-v2.0.0) (2026-10-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* the affected plugins no longer load on Paseo 0.9 or 0.10. Screen and sidebar IDs, params and settings are unchanged.
+
+### Features
+
+* require Paseo 0.11 and drop legacy surface navigation ([#286](https://github.com/omercnet/paseo-plugins/issues/286)) ([a46fe9e](https://github.com/omercnet/paseo-plugins/commit/a46fe9ee910c2cc485043d53c67dacf49bab402b))
+
+## [1.2.2](https://github.com/omercnet/paseo-plugins/compare/agent-monitor-v1.2.1...agent-monitor-v1.2.2) (2026-10-08)
+
+
+### Bug Fixes
+
+* **plugins:** ship OVERVIEW.md in published packages ([640f9a4](https://github.com/omercnet/paseo-plugins/commit/640f9a4d7bd6dbad226c4ee1ebaa199abfc62776))
+
+## [1.2.1](https://github.com/omercnet/paseo-plugins/compare/agent-monitor-v1.2.0...agent-monitor-v1.2.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **agent-monitor:** prefer first-class parentAgentId with legacy label fallback ([#285](https://github.com/omercnet/paseo-plugins/issues/285)) ([2e3ce7f](https://github.com/omercnet/paseo-plugins/commit/2e3ce7f86e52fd2ffa448977b1e3fab5bd2f59e7))
+
 ## [1.2.0](https://github.com/omercnet/paseo-plugins/compare/agent-monitor-v1.1.0...agent-monitor-v1.2.0) (2026-10-03)
 
 

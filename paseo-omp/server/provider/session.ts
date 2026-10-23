@@ -24,7 +24,13 @@ import {
   type OmpRecoveryOptions,
   withCommittedOmpSelection,
 } from "./config-normalization";
-import { OmpHostToolsBridge, type OmpMcpConnector, validateOmpHostToolConfig } from "./host-tools";
+import {
+  describeDegradedMcpServers,
+  type OmpDegradedMcpServer,
+  OmpHostToolsBridge,
+  type OmpMcpConnector,
+  validateOmpHostToolConfig,
+} from "./host-tools";
 import { isOmpImageMimeType, OmpImageMaterializer } from "./image";
 import type { OmpRuntime, OmpRuntimeSession } from "./omp-rpc";
 import { buildOmpSpawnRequest, type OmpStartOptions } from "./omp-rpc-environment";
@@ -93,6 +99,23 @@ type RewindCleanupQuarantine = (cleanup: Promise<void>) => void;
 type RewindSessionRetirement = () => void;
 type SessionPermissionInput = Extract<ProviderInput, { type: "session.permission" }>;
 type Emit = (event: ProviderEvent) => void;
+
+/** The surface a connection drives for every opened session, live or history-only. */
+export interface OmpOpenedSession {
+  readonly persistenceSessionId: string | undefined;
+  openPaseoBrowser(url: string): Promise<void>;
+  setBrowserAuthorizationIssuer(issue: ((url: string) => string | undefined) | null): void;
+  publishOpened(requestId: string): Promise<void>;
+  prompt(input: SessionPromptInput): Promise<void>;
+  permission(input: SessionPermissionInput): Promise<void>;
+  configure(input: SessionConfigureInput): Promise<void>;
+  revert(input: SessionRevertInput): Promise<void>;
+  interrupt(input: SessionInterruptInput): Promise<void>;
+  close(input?: SessionCloseInput): Promise<void>;
+  abortOpen(): Promise<void>;
+  beginConnectionShutdown(): void;
+}
+
 const LOCAL_ONLY_SETTLE_MS = 5_000;
 const AGENT_END_STATE_TIMEOUT_MS = 2_000;
 const AGENT_END_HISTORY_TIMEOUT_MS = 2_000;
@@ -119,7 +142,7 @@ const MAX_PENDING_USER_BYTES = 2 * 1024 * 1024;
 const MAX_UNCLAIMED_BRANCH_BYTES = 4 * 1024 * 1024;
 class OmpCatalogEscape extends OmpPublicError {}
 const MAX_REPLAY_MESSAGES = 100_000;
-const REPLAY_TIMEOUT_MS = 20_000;
+export const REPLAY_TIMEOUT_MS = 20_000;
 const _OMP_ASK_USER_FREEFORM_SENTINEL = "✏️ Type custom response...";
 const _MAX_FREEFORM_RESPONSE_BYTES = 64 * 1024;
 const OMP_BUILTIN_COMMANDS: readonly OmpAvailableCommand[] = [
@@ -162,7 +185,7 @@ function applicableThinkingLevel(
   return model?.reasoning === false ? undefined : level;
 }
 
-function fixedSessionMode(modeId = "full") {
+export function fixedSessionMode(modeId = "full") {
   const mode = OMP_MODES.find((candidate) => candidate.id === modeId);
   if (!mode) throw new OmpPublicError("OMP mode is unavailable");
   return {
@@ -194,7 +217,7 @@ export function ompPersistenceSessionId(input: SessionOpenInput): string | undef
   }
 }
 
-async function authorizeNativeSession(
+export async function authorizeNativeSession(
   runtime: OmpRuntime,
   sessionId: string,
   cwd: string,
@@ -228,7 +251,7 @@ function retainedBytes(values: readonly unknown[], maxBytes: number): number {
   return total;
 }
 
-async function waitForReplay<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
+export async function waitForReplay<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
   signal.throwIfAborted();
   const aborted = Promise.withResolvers<never>();
   const onAbort = () => aborted.reject(signal.reason);
@@ -271,7 +294,7 @@ async function settleSessionCleanup(promises: readonly Promise<void>[]): Promise
     throw new AggregateError(failures, "OMP session initialization cleanup failed");
   }
 }
-export class OmpProviderSession {
+export class OmpProviderSession implements OmpOpenedSession {
   readonly id: string;
   readonly cwd: string;
 
@@ -314,6 +337,7 @@ export class OmpProviderSession {
   private readonly permissions: OmpSessionPermissions;
   private unsupportedThinkingNoticePending = false;
   private unsupportedThinkingNoticePublished = false;
+  private degradedMcpServers: readonly OmpDegradedMcpServer[] = [];
 
   private constructor(
     id: string,
@@ -668,6 +692,7 @@ export class OmpProviderSession {
         scheduler,
       );
       session.unsupportedThinkingNoticePending = unsupportedThinkingLevel;
+      session.degradedMcpServers = hostTools.degraded;
 
       if (bootstrapConfigRevision !== reconciledConfigRevision) {
         session.configRefreshDirty = true;
@@ -727,6 +752,7 @@ export class OmpProviderSession {
       ...(this.config.title ? { title: this.dataFilter.text(this.config.title, 256) } : {}),
     });
     this.publishUnsupportedThinkingNotice();
+    this.publishDegradedMcpNotice();
     this.emit({ type: "session.config", sessionId: this.id, config: this.configState });
     if (this.replayHistoryOnOpen) await this.replayHistory(true);
     this.publishCommands(this.commandCatalog);
@@ -747,6 +773,19 @@ export class OmpProviderSession {
         title: "OMP thinking level unavailable",
         description:
           "OMP reported a thinking level that the active model does not advertise. Paseo omitted it from the session configuration.",
+      },
+    });
+  }
+  private publishDegradedMcpNotice(): void {
+    if (this.degradedMcpServers.length === 0) return;
+    this.emit({
+      type: "session.notice",
+      sessionId: this.id,
+      notice: {
+        id: "omp:mcp-servers-unavailable",
+        severity: "warning",
+        title: "MCP servers unavailable",
+        description: describeDegradedMcpServers(this.degradedMcpServers),
       },
     });
   }
@@ -1034,7 +1073,12 @@ export class OmpProviderSession {
     }
 
     if (input.prompt.delivery === "steer") {
-      await this.steer(input.prompt.clientMessageId, payload);
+      await this.steer(
+        input.prompt.clientMessageId,
+        payload,
+        undefined,
+        input.prompt.clearPendingPermissions === true,
+      );
       return;
     }
     if (
@@ -2091,6 +2135,7 @@ export class OmpProviderSession {
     clientMessageId: string,
     payload: OmpPromptPayload,
     expectedTurn = this.activeTurn,
+    clearPendingPermissions = false,
   ): Promise<void> {
     const turn = expectedTurn;
     if (!this.isSteerableTurn(turn)) {
@@ -2165,6 +2210,10 @@ export class OmpProviderSession {
       this.cancelAmbiguousTerminal(turn);
       turn.deferredAgentEnd = undefined;
       this.acceptPendingUser(turn, pending);
+      if (clearPendingPermissions) {
+        turn.awaitingPermissionEvidence = false;
+        this.permissions.resolveTurnPermissions(turn.turnId);
+      }
       this.emit({
         type: "session.prompt_result",
         sessionId: this.id,
@@ -2257,7 +2306,10 @@ export class OmpProviderSession {
     if (
       event.type === "config_warnings_changed" ||
       event.type === "advisor_cost_changed" ||
-      event.type === "ttsr_triggered"
+      event.type === "ttsr_triggered" ||
+      event.type === "cache_warming_start" ||
+      event.type === "cache_warming_end" ||
+      event.type === "queue_update"
     ) {
       return;
     }

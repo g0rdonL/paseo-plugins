@@ -1,5 +1,5 @@
 {
   "id": "pr-radar-private",
   "description": "Fork of pr-radar that adds assignee and mention to the inbox so private-repo PRs where you're involved but not authoring surface alongside authored and reviewer rows.",
-  "requirements": { "paseo": ">=0.9.0" }
+  "requirements": { "paseo": ">=0.12.0" }
 }

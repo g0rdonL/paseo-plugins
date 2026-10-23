@@ -252,8 +252,8 @@ describe("OMP direct provider", () => {
     const session = sessionAt(runtime);
     await startPrompt(connection, events, "host-tool-label-turn", "read");
     for (const [toolCallId, toolName, args] of [
-      ["direct-host-tool", "mcp__repo_read", {}],
-      ["routed-host-tool", "write", { path: "xd://mcp__repo_read", content: "{}" }],
+      ["direct-host-tool", "mcpx__repo_read", {}],
+      ["routed-host-tool", "write", { path: "xd://mcpx__repo_read", content: "{}" }],
     ] as const) {
       session.emit({ type: "tool_execution_start", toolCallId, toolName, args });
       session.emit({ type: "tool_execution_end", toolCallId, toolName, result: { ok: true } });
@@ -268,6 +268,62 @@ describe("OMP direct provider", () => {
     expect(labeledSnapshots).toHaveLength(4);
     expect(new Set(labeledSnapshots.map((item) => item.id)).size).toBe(2);
     expect(labeledSnapshots.filter((item) => item.status === "completed")).toHaveLength(2);
+    await connection.close();
+  });
+
+  test("opens with healthy MCP servers and publishes one notice for a skipped server", async () => {
+    const failures: Array<{ category: string; stage: string }> = [];
+    const connection = await createOmpProvider({
+      runtime: new FakeOmpRuntime(),
+      timelineScheduler: new ManualScheduler(),
+      environment: TEST_RUNTIME_ENV,
+      mcpConnector: async (name) => {
+        if (name === "broken") throw new Error("secret-value refused");
+        return {
+          listTools: async () => ({ tools: [{ name: "read", inputSchema: { type: "object" } }] }),
+          callTool: async () => ({ content: [] }),
+          close: async () => {},
+        };
+      },
+      reportOperationalFailure: (failure) => failures.push(failure),
+    }).connect({
+      versions: [1],
+      capabilities: ["prompt.message", "session.configure", "permission"],
+    });
+    const events = new EventLog();
+    connection.onEvent((event) => events.push(event));
+    await connection.send({
+      type: "session.open",
+      requestId: "degraded-open",
+      sessionId: "session-1",
+      config: {
+        cwd: "/repo",
+        env: {},
+        mcpServers: {
+          broken: { type: "stdio", command: "broken" },
+          repo: { type: "stdio", command: "repo" },
+        },
+        model: MODEL_PUBLIC_ID,
+        mode: "full",
+        thinkingOption: "medium",
+        settings: {},
+        persist: false,
+      },
+      history: "skip",
+    });
+    await events.waitFor((event) => event.type === "session.ready");
+
+    const notices = events.flatMap((event) => (event.type === "session.notice" ? [event] : []));
+    expect(notices).toHaveLength(1);
+    expect(notices[0]?.notice).toEqual(
+      expect.objectContaining({
+        id: "omp:mcp-servers-unavailable",
+        severity: "warning",
+        description: expect.stringContaining("broken (unavailable)"),
+      }),
+    );
+    expect(JSON.stringify(notices)).not.toContain("secret-value");
+    expect(failures).toEqual([{ category: "session-open", stage: "optional-mcp" }]);
     await connection.close();
   });
 
@@ -289,7 +345,7 @@ describe("OMP direct provider", () => {
       type: "host_tool_call",
       id: "open-bind-cancelled",
       toolCallId: "open-bind-cancelled-tool-call",
-      toolName: "mcp__repo_read",
+      toolName: "mcpx__repo_read",
       arguments: {},
     });
     session.emit({
@@ -399,7 +455,7 @@ describe("OMP direct provider", () => {
       type: "host_tool_call",
       id: "recovery-write-failure-call",
       toolCallId: "recovery-write-failure-tool-call",
-      toolName: "mcp__repo_read",
+      toolName: "mcpx__repo_read",
       arguments: {},
     });
     await writeAttempted.promise;
@@ -468,7 +524,7 @@ describe("OMP direct provider", () => {
       type: "host_tool_call",
       id: "host-result-call",
       toolCallId: "host-result-tool-call",
-      toolName: "mcp__repo_read",
+      toolName: "mcpx__repo_read",
       arguments: {},
     });
     await closed.promise;
