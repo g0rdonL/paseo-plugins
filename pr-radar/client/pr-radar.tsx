@@ -2,7 +2,15 @@ import { openExternalUrl, type PluginSurfaceProps, useRpc } from "@getpaseo/plug
 import { copyText } from "@getpaseo/plugin/client/react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { acknowledgeViewerScope } from "../shared/viewer-scope";
 import {
   agentActionFor,
@@ -335,7 +343,9 @@ export function PrRadar({
         fontSize: 13,
         fontWeight: "700" as const,
       },
-      chips: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: 7 },
+      // Filter chips stay on one line and scroll sideways instead of wrapping.
+      chipScroller: { flexGrow: 0 },
+      chipRow: { flexDirection: "row" as const, gap: 7, paddingRight: 6 },
       chip: {
         minHeight: 32,
         justifyContent: "center" as const,
@@ -687,7 +697,13 @@ export function PrRadar({
           </View>
         ))}
       </View>
-      <View accessibilityRole="tablist" style={styles.chips}>
+      <ScrollView
+        accessibilityRole="tablist"
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipScroller}
+        contentContainerStyle={styles.chipRow}
+      >
         <Pressable
           accessibilityRole="tab"
           accessibilityState={{
@@ -757,7 +773,7 @@ export function PrRadar({
             </Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
       <TextInput
         accessibilityLabel="Filter pull requests"
         autoCapitalize="none"
