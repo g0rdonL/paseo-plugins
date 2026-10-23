@@ -2,7 +2,11 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { acknowledgeViewerUpdates, resolveViewerScope } from "../server/viewer-scope";
+import {
+  acknowledgeViewerUpdates,
+  resetViewerScopeCache,
+  resolveViewerScope,
+} from "../server/viewer-scope";
 
 type GhHandler = (args: string[]) => string;
 const gh = vi.hoisted(() => ({
@@ -58,6 +62,7 @@ afterEach(async () => {
   gh.failSearches = false;
   gh.peakSearches = 0;
   vi.unstubAllEnvs();
+  await resetViewerScopeCache();
   await Promise.all(temporaryDirectories.splice(0).map((d) => rm(d, { recursive: true })));
 });
 
@@ -160,6 +165,7 @@ describe("viewer scope inbox", () => {
     });
 
     gh.handler = ghFor({ checks: "SUCCESS" });
+    await resetViewerScopeCache(); // drop the cached snapshot so the next read re-fetches
     const second = await resolveViewerScope({ urls: [url], windowDays: 30 });
     expect(second.updates).toBe(1);
     expect(second.inboxItems[0].changes).toContain("Checks: pending → success");
