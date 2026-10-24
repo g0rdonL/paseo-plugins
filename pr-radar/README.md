@@ -45,6 +45,9 @@ activity times count as the epoch, so they sort first in oldest-first orders and
 orders. Sort selection stays local to the open screen and resets on reload, like search and the
 time window.
 
+On web, Tab enters the group at the selected option and Tab or Shift+Tab leaves it. Space selects
+the focused option. Arrow keys select and focus the next or previous option, wrapping at either end.
+
 ## Sidebar row
 
 The sidebar row shows a "needs you" count; pressing the count opens a popover of those pull requests. Pressing one opens PR Radar focused on it (`param.pr`), and the needs-you link filters the queue (`param.filter`), so both survive reload and can be linked. A trailing `+` marks a count that may be incomplete: viewer lookup failed, a pagination or inbox cap was hit, or workspace status was unavailable.
