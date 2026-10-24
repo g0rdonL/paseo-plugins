@@ -13,7 +13,6 @@ interface SortControlsProps {
   sortKey: SortKey;
   onSort: (key: SortKey) => void;
   styles: {
-    chips: StyleProp<ViewStyle>;
     chip: StyleProp<ViewStyle>;
     chipActive: StyleProp<ViewStyle>;
     chipText: StyleProp<TextStyle>;
@@ -31,14 +30,12 @@ export interface RadioKeyEvent {
   preventDefault(): void;
 }
 
+const rowStyle: ViewStyle = { flexDirection: "row", flexWrap: "wrap", gap: 7 };
+
 export function SortControls({ sortKey, onSort, styles }: SortControlsProps) {
   const isWeb = Platform.OS === "web";
   return (
-    <View
-      accessibilityRole="radiogroup"
-      accessibilityLabel="Sort pull requests"
-      style={styles.chips}
-    >
+    <View accessibilityRole="radiogroup" accessibilityLabel="Sort pull requests" style={rowStyle}>
       <Text style={[styles.chipText, { alignSelf: "center" }]}>Sort</Text>
       {SORT_KEYS.map((key, index) => (
         <Pressable

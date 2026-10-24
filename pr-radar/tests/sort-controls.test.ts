@@ -30,7 +30,7 @@ function radios(node: ReactNode): ControlProps[] {
   });
 }
 
-const styles = { chips: {}, chip: {}, chipActive: {}, chipText: {}, chipTextActive: {} };
+const styles = { chip: {}, chipActive: {}, chipText: {}, chipTextActive: {} };
 
 beforeEach(() => {
   platform.OS = "web";
