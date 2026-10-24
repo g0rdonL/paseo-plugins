@@ -478,8 +478,10 @@ export function PrRadar({
 
   const copyPrLink = useCallback(async (row: RadarRow) => {
     setOpenError(null);
+    setCopied(null);
     try {
       await copyText(row.url);
+      setOpenError(null);
       setCopied({ id: row.id });
     } catch {
       setOpenError(`Could not copy the link for ${row.repository}#${row.number ?? "PR"}.`);
