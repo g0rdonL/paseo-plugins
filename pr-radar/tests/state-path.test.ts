@@ -52,6 +52,7 @@ async function temporaryDirectory(): Promise<string> {
 }
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   gh.handler = undefined;
   gh.defer = false;
   gh.failSearches = false;
