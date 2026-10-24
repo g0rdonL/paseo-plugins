@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
@@ -64,12 +64,16 @@ describe("background cache", () => {
   afterAll(() => rmSync(home.dir, { recursive: true, force: true }));
 
   test("overlapping refreshes of different windows both persist", async () => {
+    const stateFile = join(home.dir, ".paseo", "plugin-data", "pr-radar", "inbox-state.json");
+    rmSync(stateFile, { force: true });
     const [week, month] = await Promise.all([
       resolveViewerScope({ urls: [], windowDays: 7 }),
       resolveViewerScope({ urls: [], windowDays: 30 }),
     ]);
     expect(week.error).toBeNull();
     expect(month.error).toBeNull();
+    const state = JSON.parse(readFileSync(stateFile, "utf8"));
+    expect(Object.keys(state.windows).sort()).toEqual(["30", "7"]);
   });
 
   test("an acknowledgement made during a refresh is not overwritten", async () => {
@@ -132,16 +136,27 @@ describe("background cache", () => {
 
   test("a failed background refresh keeps serving the last good snapshot", async () => {
     await resolveViewerScope({ urls: [], windowDays: 30 });
+    const before = loginCalls();
     gh.fail = true;
-    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
     vi.setSystemTime(Date.now() + STALE_AFTER_MS + 1_000);
-    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
-    const answer = await resolveViewerScope({ urls: [], windowDays: 30 });
-    await flush();
-    await flush();
-    expect(answer.error).toBeNull();
-    expect(answer.viewer).toBe("testuser");
-    errors.mockRestore();
+    const failed = Promise.withResolvers<void>();
+    const errors = vi.spyOn(console, "error").mockImplementation(() => failed.resolve());
+    try {
+      const answer = await resolveViewerScope({ urls: [], windowDays: 30 });
+      await vi.runAllTimersAsync();
+      expect(loginCalls()).toBeGreaterThan(before);
+      await failed.promise;
+      expect(answer.error).toBeNull();
+      expect(answer.viewer).toBe("testuser");
+      const afterFailure = resolveViewerScope({ urls: [], windowDays: 30 });
+      await vi.runAllTimersAsync();
+      expect(await afterFailure).toEqual(answer);
+    } finally {
+      await resetViewerScopeCache();
+      errors.mockRestore();
+      vi.useRealTimers();
+    }
   });
 
   test("a snapshot too old to trust is not served: a refresh that keeps failing is reported", async () => {
@@ -186,15 +201,25 @@ describe("background cache", () => {
   });
 
   test("the loop warms the default window at startup and stops cleanly", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
     const stop = startBackgroundRefresh(60_000);
-    stop();
-    // The first read joins the startup refresh instead of starting another sweep.
-    const answer = await resolveViewerScope({ urls: [], windowDays: 30 });
-    expect(answer.viewer).toBe("testuser");
-    expect(loginCalls()).toBe(1);
-    const calls = gh.calls.length;
-    await resolveViewerScope({ urls: [], windowDays: 30 });
-    expect(gh.calls.length).toBe(calls);
+    try {
+      stop();
+      // The first read joins the startup refresh instead of starting another sweep.
+      const answer = await resolveViewerScope({ urls: [], windowDays: 30 });
+      expect(answer.viewer).toBe("testuser");
+      expect(loginCalls()).toBe(1);
+      const calls = gh.calls.length;
+      await resolveViewerScope({ urls: [], windowDays: 30 });
+      expect(gh.calls.length).toBe(calls);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(gh.calls.length).toBe(calls);
+    } finally {
+      stop();
+      vi.clearAllTimers();
+      await resetViewerScopeCache();
+      vi.useRealTimers();
+    }
   });
 
   test("windows nobody asks about stop being refreshed, the default one included", async () => {
