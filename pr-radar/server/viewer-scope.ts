@@ -363,9 +363,27 @@ export async function resolveViewerScope({
     const nextPending: Record<string, string[]> = {};
     for (const item of inboxItems) {
       const prior = previous.items[item.id];
+      const state = enrichment.states.get(item.id);
       const detected =
         initialized && (!prior || enrichment.states.has(item.id)) ? detectChanges(prior, item) : [];
-      item.changes = mergeChanges(previous.pendingChanges[item.id] ?? [], detected);
+      item.changes = mergeChanges(previous.pendingChanges[item.id] ?? [], detected, {
+        Checks:
+          state?.statusCheckRollup === null || item.checksStatus !== "none"
+            ? item.checksStatus
+            : undefined,
+        Review:
+          state?.reviewDecision === null || item.reviewDecision !== null
+            ? (item.reviewDecision ?? "none")
+            : undefined,
+        Mergeable:
+          item.mergeable === "MERGEABLE" || item.mergeable === "CONFLICTING"
+            ? item.mergeable.toLowerCase()
+            : undefined,
+        "Merge state":
+          item.mergeStateStatus && item.mergeStateStatus.toUpperCase() !== "UNKNOWN"
+            ? item.mergeStateStatus
+            : undefined,
+      });
       nextItems[item.id] = prior && !enrichment.states.has(item.id) ? prior : storedItem(item);
       if (item.changes.length > 0) nextPending[item.id] = item.changes;
     }

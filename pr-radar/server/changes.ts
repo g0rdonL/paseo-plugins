@@ -1,23 +1,27 @@
 const TRANSITION = /^(.+?): (.+) → (.+)$/;
 
 /**
- * Folds newly detected changes into the pending ones. A field that flips back and forth between
- * refreshes ("Checks: success → pending", then "pending → success") is reported once as its net
- * change, and dropped entirely when it ended where it started.
+ * Reports each field's net change from its first recorded origin to its trustworthy current value.
+ * Legacy pending lists deduplicate repeated transitions, so their last entry is not the latest state.
  */
-export function mergeChanges(pending: string[], detected: string[]): string[] {
+export function mergeChanges(
+  pending: string[],
+  detected: string[],
+  current: Readonly<Record<string, string | undefined>>,
+): string[] {
   const merged: string[] = [];
+  const seen = new Set<string>();
   for (const change of [...pending, ...detected]) {
     const next = TRANSITION.exec(change);
-    const index = next ? merged.findIndex((entry) => TRANSITION.exec(entry)?.[1] === next[1]) : -1;
-    if (!next || index === -1) {
+    const to = next ? current[next[1]] : undefined;
+    if (!next || typeof to !== "string") {
       if (!merged.includes(change)) merged.push(change);
       continue;
     }
-    const [, label, , to] = next;
-    const from = TRANSITION.exec(merged[index])?.[2];
-    if (from === to) merged.splice(index, 1);
-    else merged[index] = `${label}: ${from} → ${to}`;
+    const [, label, from] = next;
+    if (seen.has(label)) continue;
+    seen.add(label);
+    if (from !== to) merged.push(`${label}: ${from} → ${to}`);
   }
   return merged;
 }
