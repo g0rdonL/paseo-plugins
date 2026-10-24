@@ -24,8 +24,6 @@ import {
   openPullRequestUrl,
   type RadarBucket,
   type RadarRow,
-  SORT_KEYS,
-  SORT_TITLES,
   type SortKey,
   sortRows,
 } from "./radar";
@@ -36,6 +34,7 @@ import {
   type RadarFilter,
   VIEWER_URL_LIMIT,
 } from "./screen-state";
+import { SortControls } from "./sort-controls";
 import { useRadar } from "./use-radar";
 import { revealFocusedChip } from "./web";
 
@@ -792,26 +791,7 @@ export function PrRadar({
         style={styles.search}
         value={search}
       />
-      <View
-        accessibilityRole="radiogroup"
-        accessibilityLabel="Sort pull requests"
-        style={styles.chips}
-      >
-        <Text style={[styles.chipText, { alignSelf: "center" }]}>Sort</Text>
-        {SORT_KEYS.map((key) => (
-          <Pressable
-            accessibilityRole="radio"
-            accessibilityState={{ checked: sortKey === key }}
-            key={key}
-            onPress={() => setSortKey(key)}
-            style={[styles.chip, sortKey === key && styles.chipActive]}
-          >
-            <Text style={[styles.chipText, sortKey === key && styles.chipTextActive]}>
-              {SORT_TITLES[key]}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <SortControls sortKey={sortKey} onSort={setSortKey} styles={styles} />
       {viewerData ? (
         <View style={{ gap: 7 }}>
           <Text style={styles.heroDetail}>

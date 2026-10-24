@@ -33,6 +33,18 @@ DevTools before capture. Both PNGs come from an isolated Paseo test daemon at 2Ã
 
 Paseo supplies normalized workspace pull request status. A daemon-side plugin handler uses the authenticated `gh` CLI to distinguish authored pull requests from review requests. If viewer lookup fails, PR Radar falls back conservatively and does not claim that a row needs the user.
 
+## Sorting
+
+The Sort row applies after the current filters and search. **Needs attention first** is the default:
+bucket order, then oldest activity first. **Mergeable first** puts Ready rows first, newest activity
+first, then the remaining buckets. **Recently updated** and **Oldest first** order by activity, not
+creation time. **Repository** orders by repository name, then PR number.
+
+Activity ties use ascending titles; fully tied rows keep their input order. Missing or invalid
+activity times count as the epoch, so they sort first in oldest-first orders and last in newest-first
+orders. Sort selection stays local to the open screen and resets on reload, like search and the
+time window.
+
 ## Sidebar row
 
 The sidebar row shows a "needs you" count; pressing the count opens a popover of those pull requests. Pressing one opens PR Radar focused on it (`param.pr`), and the needs-you link filters the queue (`param.filter`), so both survive reload and can be linked. A trailing `+` marks a count that may be incomplete: viewer lookup failed, a pagination or inbox cap was hit, or workspace status was unavailable.

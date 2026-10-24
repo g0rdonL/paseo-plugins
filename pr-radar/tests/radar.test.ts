@@ -129,8 +129,20 @@ describe("sorting", () => {
   });
 
   test("recent, oldest, and repository orders", () => {
-    expect(ids(sortRows(rows, "recent"))[0]).toBe("ready-newest");
-    expect(ids(sortRows(rows, "oldest"))[0]).toBe("ready-old");
+    expect(ids(sortRows(rows, "recent"))).toEqual([
+      "ready-newest",
+      "red-new",
+      "ready-new",
+      "waiting",
+      "ready-old",
+    ]);
+    expect(ids(sortRows(rows, "oldest"))).toEqual([
+      "ready-old",
+      "waiting",
+      "ready-new",
+      "red-new",
+      "ready-newest",
+    ]);
     expect(ids(sortRows(rows, "repository"))).toEqual([
       "waiting",
       "ready-old",
@@ -183,6 +195,13 @@ describe("sorting", () => {
     expect(ids(sortRows([known, unknown], "oldest"))).toEqual(["unknown", "known"]);
     expect(ids(sortRows([unknown, known], "recent"))).toEqual(["known", "unknown"]);
     expect(ids(sortRows([known, unknown], "attention"))).toEqual(["unknown", "known"]);
+  });
+
+  test("fully tied rows keep input order in every sort, including absent dates and PR numbers", () => {
+    const tied = ["second", "first"].map((id) => row({ id, activityAt: null, number: null }));
+    for (const key of ["attention", "mergeable", "recent", "oldest", "repository"] as const) {
+      expect(ids(sortRows(tied, key))).toEqual(["second", "first"]);
+    }
   });
 
   test("does not mutate its input", () => {
