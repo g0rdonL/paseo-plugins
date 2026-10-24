@@ -3,12 +3,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { mergeChanges } from "../server/changes";
-import { resolveViewerScope } from "../server/viewer-scope";
+import {
+  resetViewerScopeCache,
+  resolveViewerScope,
+  startBackgroundRefresh,
+} from "../server/viewer-scope";
 
 const gh = vi.hoisted(() => ({
   checks: "SUCCESS",
   detail: {} as Record<string, unknown>,
   enrichmentFails: false,
+  calls: 0,
 }));
 const url = "https://github.com/acme/app/pull/1";
 
@@ -19,6 +24,7 @@ vi.mock("node:child_process", () => ({
     _options: unknown,
     callback: (error: Error | null, result?: { stdout: string }) => void,
   ) => {
+    gh.calls += 1;
     if (args[1] === "graphql" && gh.enrichmentFails) {
       callback(new Error("GitHub enrichment unavailable"));
       return;
@@ -61,9 +67,11 @@ vi.mock("node:child_process", () => ({
 const directories: string[] = [];
 
 afterEach(async () => {
+  await resetViewerScopeCache();
   gh.checks = "SUCCESS";
   gh.detail = {};
   gh.enrichmentFails = false;
+  gh.calls = 0;
   vi.unstubAllEnvs();
   await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true })));
 });
@@ -136,6 +144,18 @@ describe("mergeChanges", () => {
     expect(mergeChanges(pending, [], {})).toEqual(pending);
   });
 });
+async function refreshInBackground() {
+  const refreshed = Promise.withResolvers<void>();
+  const log = vi.spyOn(console, "log").mockImplementation(() => refreshed.resolve());
+  const stop = startBackgroundRefresh();
+  try {
+    await refreshed.promise;
+    return await resolveViewerScope({ urls: [url], windowDays: 30 });
+  } finally {
+    stop();
+    log.mockRestore();
+  }
+}
 
 async function refreshLegacy(pending: string[], overrides: Record<string, unknown>) {
   const directory = await mkdtemp(join(tmpdir(), "pr-radar-"));
@@ -166,7 +186,7 @@ async function refreshLegacy(pending: string[], overrides: Record<string, unknow
       },
     }),
   );
-  const result = await resolveViewerScope({ urls: [url], windowDays: 30 });
+  const result = await refreshInBackground();
   expect(result.error).toBeNull();
   expect(result.acknowledgedAt).toBe("2026-10-01T00:00:00Z");
   expect(result.inboxItems[0].updatedAt).toBe("2026-10-02T00:00:00Z");
@@ -183,10 +203,15 @@ describe("pending changes across refreshes", () => {
     vi.stubEnv("PASEO_HOME", directory);
     const refresh = async (checks: string) => {
       gh.checks = checks;
-      return resolveViewerScope({ urls: [url], windowDays: 30 });
+      return refreshInBackground();
     };
 
     await refresh("SUCCESS");
+    const calls = gh.calls;
+    gh.checks = "PENDING";
+    const warm = await resolveViewerScope({ urls: [url], windowDays: 30 });
+    expect(warm.inboxItems[0].checksStatus).toBe("success");
+    expect(gh.calls).toBe(calls);
     const pending = await refresh("PENDING");
     expect(pending.inboxItems[0].changes).toEqual(["Checks: success → pending"]);
 
@@ -251,7 +276,7 @@ describe("pending changes across refreshes", () => {
     expect(await refreshLegacy(pending, { checksStatus: "pending" })).toEqual(pending);
     gh.enrichmentFails = false;
     gh.checks = "PENDING";
-    const recovered = await resolveViewerScope({ urls: [url], windowDays: 30 });
+    const recovered = await refreshInBackground();
     expect(recovered.inboxItems[0].changes).toEqual([pending[0]]);
     expect(recovered.updates).toBe(1);
   });
