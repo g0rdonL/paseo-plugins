@@ -33,6 +33,7 @@ import {
   VIEWER_URL_LIMIT,
 } from "./screen-state";
 import { useRadar } from "./use-radar";
+import { revealFocusedChip } from "./web";
 
 const CLOCK_TICK_MS = 30_000;
 
@@ -700,6 +701,7 @@ export function PrRadar({
       <ScrollView
         accessibilityRole="tablist"
         horizontal
+        onFocus={revealFocusedChip}
         showsHorizontalScrollIndicator={false}
         style={styles.chipScroller}
         contentContainerStyle={styles.chipRow}
