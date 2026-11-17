@@ -7,7 +7,7 @@ const { gh, home } = vi.hoisted(() => ({
   gh: {
     calls: [] as string[][],
     fail: false,
-    /** Authors returned by the GraphQL author lookup, keyed by lowercased PR URL. */
+    /** Authors returned by the GraphQL author lookup, keyed by exact PR URL (GitHub is case-sensitive). */
     authors: {} as Record<string, string>,
     /** Resolves pending gh calls when set; lets a test hold a refresh open. */
     gate: null as Promise<void> | null,
@@ -36,7 +36,7 @@ vi.mock("node:child_process", () => ({
         for (const arg of args) {
           const match = /^u(\d+)=(.+)$/.exec(arg);
           if (!match) continue;
-          const login = gh.authors[match[2].toLowerCase()];
+          const login = gh.authors[match[2]];
           data[`p${match[1]}`] = login ? { author: { login } } : null;
         }
         stdout = JSON.stringify({ data });
