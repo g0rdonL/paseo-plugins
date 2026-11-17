@@ -7,6 +7,8 @@ const { gh, home } = vi.hoisted(() => ({
   gh: {
     calls: [] as string[][],
     fail: false,
+    /** Authors returned by the GraphQL author lookup, keyed by lowercased PR URL. */
+    authors: {} as Record<string, string>,
     /** Resolves pending gh calls when set; lets a test hold a refresh open. */
     gate: null as Promise<void> | null,
     /** gh search calls currently running, and the most seen at once. */
@@ -37,7 +39,17 @@ vi.mock("node:child_process", () => ({
     const respond = () => {
       if (isSearch) gh.activeSearches -= 1;
       if (gh.fail) return callback(new Error("gh: network down"));
-      const stdout = args[0] === "api" && args[1] === "user" ? "g0rdonL\n" : "[]";
+      let stdout = args[0] === "api" && args[1] === "user" ? "g0rdonL\n" : "[]";
+      if (args[1] === "graphql" && args.some((arg) => arg.includes("resource(url:"))) {
+        const data: Record<string, unknown> = {};
+        for (const arg of args) {
+          const match = /^u(\d+)=(.+)$/.exec(arg);
+          if (!match) continue;
+          const login = gh.authors[match[2].toLowerCase()];
+          data[`p${match[1]}`] = login ? { author: { login } } : null;
+        }
+        stdout = JSON.stringify({ data });
+      }
       callback(null, { stdout, stderr: "" });
     };
     if (gh.gate) void gh.gate.then(respond);
@@ -114,7 +126,42 @@ describe("background cache", () => {
     });
     expect(second.viewer).toBe("g0rdonL");
     expect(second.ownedUrls).toContain("https://github.com/a/b/pull/1");
-    expect(gh.calls.length).toBe(sweep);
+    expect(gh.calls.length).toBe(sweep + 1); // one author lookup for the unseen URL
+
+    await resolveViewerScope({ urls: ["https://github.com/a/b/pull/1"], windowDays: 30 });
+    expect(gh.calls.length).toBe(sweep + 1); // the answer is cached
+  });
+
+  test("a PR the viewer opened is theirs before GitHub search indexes it", async () => {
+    gh.authors = {
+      "https://github.com/me/repo/pull/7": "G0RDONL",
+      "https://github.com/other/repo/pull/8": "someone",
+    };
+    try {
+      const answer = await resolveViewerScope({
+        urls: ["https://github.com/me/repo/pull/7", "https://github.com/other/repo/pull/8"],
+        windowDays: 30,
+      });
+      expect(answer.authoredUrls).toEqual(["https://github.com/me/repo/pull/7"]);
+    } finally {
+      gh.authors = {};
+    }
+  });
+
+  test("a failed author lookup leaves ownership to search and is retried", async () => {
+    await resolveViewerScope({ urls: [], windowDays: 30 });
+    gh.fail = true;
+    const url = "https://github.com/me/repo/pull/9";
+    const first = await resolveViewerScope({ urls: [url], windowDays: 30 });
+    expect(first.authoredUrls).toEqual([]);
+    gh.fail = false;
+    gh.authors = { [url]: "g0rdonL" };
+    try {
+      const second = await resolveViewerScope({ urls: [url], windowDays: 30 });
+      expect(second.authoredUrls).toEqual([url]);
+    } finally {
+      gh.authors = {};
+    }
   });
 
   test("a stale read returns immediately and refreshes in the background", async () => {

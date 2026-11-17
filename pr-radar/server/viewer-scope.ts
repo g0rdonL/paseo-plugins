@@ -285,6 +285,61 @@ const enrichmentQuery = `
   }
 `;
 
+/**
+ * Authors of pull requests looked up by URL. GitHub's search index lags behind new pull requests,
+ * so a PR opened minutes ago is missing from the `--author=@me` search and would be labelled
+ * external. A PR's author never changes, so a successful lookup is kept for the process lifetime.
+ */
+const authorsByUrl = new Map<string, string | null>();
+
+async function lookupAuthors(urls: string[]): Promise<void> {
+  const unknown = [...new Set(urls.map((url) => url.toLowerCase()))].filter(
+    (url) => !authorsByUrl.has(url),
+  );
+  await Promise.allSettled(
+    chunks(unknown, ENRICHMENT_BATCH_SIZE).map(async (batch) => {
+      const variables = batch.map((_, index) => `$u${index}: URI!`).join(", ");
+      const fields = batch
+        .map(
+          (_, index) =>
+            `p${index}: resource(url: $u${index}) { ... on PullRequest { author { login } } }`,
+        )
+        .join("\n");
+      const args = ["api", "graphql", "-f", `query=query(${variables}) {\n${fields}\n}`];
+      batch.forEach((url, index) => {
+        args.push("-f", `u${index}=${url}`);
+      });
+      const payload = JSON.parse(await runGh(args, 10_000)) as {
+        data?: Record<string, { author?: { login: string } | null } | null>;
+      };
+      if (!payload.data) return;
+      batch.forEach((url, index) => {
+        // GitHub answered for this URL: cache it, including "not a PR the viewer can see". Failed
+        // requests are not cached, so they are retried on the next request.
+        authorsByUrl.set(url, payload.data?.[`p${index}`]?.author?.login ?? null);
+      });
+    }),
+  );
+}
+
+/** Adds requested PRs the viewer authored but search has not indexed yet. */
+async function withFreshAuthorship(
+  output: ViewerScopeOutput,
+  urls: string[],
+): Promise<ViewerScopeOutput> {
+  if (output.error !== null || !output.viewer) return output;
+  const authored = new Set(output.authoredUrls.map((url) => url.toLowerCase()));
+  const missing = urls.filter((url) => !authored.has(url.toLowerCase()));
+  if (missing.length === 0) return output;
+  await lookupAuthors(missing);
+  const viewer = output.viewer.toLowerCase();
+  const fresh = missing.filter(
+    (url) => authorsByUrl.get(url.toLowerCase())?.toLowerCase() === viewer,
+  );
+  if (fresh.length === 0) return output;
+  return { ...output, authoredUrls: [...output.authoredUrls, ...fresh] };
+}
+
 function chunks<T>(items: T[], size: number): T[][] {
   const result: T[][] = [];
   for (let index = 0; index < items.length; index += size) {
@@ -804,14 +859,14 @@ export async function resolveViewerScope({
     if (Date.now() - cached.at > STALE_AFTER_MS && !inBackoff(windowDays)) {
       refreshInBackground(windowDays);
     }
-    return projectSnapshot(cached.snapshot, urls);
+    return withFreshAuthorship(projectSnapshot(cached.snapshot, urls), urls);
   }
   if (inBackoff(windowDays) && !inflight.has(windowDays)) {
     return errorOutput(failures.get(windowDays)?.error);
   }
   // First request for this window (or the startup refresh is still running): wait once.
   try {
-    return projectSnapshot(await refreshWindow(windowDays), urls);
+    return await withFreshAuthorship(projectSnapshot(await refreshWindow(windowDays), urls), urls);
   } catch (error) {
     console.error("PR Radar GitHub inbox refresh failed", error);
     return errorOutput(error);
@@ -827,6 +882,7 @@ export async function resetViewerScopeCache({ keepDisk = false } = {}): Promise<
   diskChecked.clear();
   snapshots.clear();
   inflight.clear();
+  authorsByUrl.clear();
   for (const windowDays of [...failures.keys(), ...retryTimers.keys()]) clearFailure(windowDays);
   lastRequested.clear();
   lastRequested.set(DEFAULT_WINDOW_DAYS, Date.now());
