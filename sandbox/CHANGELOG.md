@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/g0rdonL/paseo-plugins/compare/sandbox-v0.3.2...sandbox-v0.4.0) (2026-11-17)
+
+
+### Features
+
+* add listing icon to plugin manifests ([#418](https://github.com/g0rdonL/paseo-plugins/issues/418)) ([2e7aadd](https://github.com/g0rdonL/paseo-plugins/commit/2e7aaddac381bb2a5c596f95b1f9b7b8aee89cb2))
+* **sandbox:** run project workspaces and agents in Docker sandboxes ([#395](https://github.com/g0rdonL/paseo-plugins/issues/395)) ([af77e50](https://github.com/g0rdonL/paseo-plugins/commit/af77e50ee3fbe1ac2ae20d8b70b1584e025ee461))
+* **sandbox:** share the host's Claude, Codex, OpenCode and GitHub logins ([#400](https://github.com/g0rdonL/paseo-plugins/issues/400)) ([732d7b8](https://github.com/g0rdonL/paseo-plugins/commit/732d7b8febd531291afd3ffdb3ceca01bd6afacd))
+* **sandbox:** ship OMP in the runtime image and share the host's OMP login ([#402](https://github.com/g0rdonL/paseo-plugins/issues/402)) ([25affdb](https://github.com/g0rdonL/paseo-plugins/commit/25affdb5ca33206c8cf0477d2588c3c8ef60fe71))
+
+
+### Bug Fixes
+
+* **deps:** support Paseo 0.14.0-beta.1 ([0f019e0](https://github.com/g0rdonL/paseo-plugins/commit/0f019e054992660f589c14894c4382d51325dc31))
+* **deps:** support Paseo 0.15.0-beta.1 ([#479](https://github.com/g0rdonL/paseo-plugins/issues/479)) ([89f4559](https://github.com/g0rdonL/paseo-plugins/commit/89f45597a6f634c856def38ed6a5a76782083a8b))
+* **deps:** support Paseo 0.16 ([#574](https://github.com/g0rdonL/paseo-plugins/issues/574)) ([e53096c](https://github.com/g0rdonL/paseo-plugins/commit/e53096cea4c11ed81de3757c9f9710fa0042b723))
+
 ## [0.3.2](https://github.com/omercnet/paseo-plugins/compare/sandbox-v0.3.1...sandbox-v0.3.2) (2026-11-10)
 
 

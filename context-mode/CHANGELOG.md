@@ -1,5 +1,54 @@
 # Changelog
 
+## [5.0.0](https://github.com/g0rdonL/paseo-plugins/compare/paseo-context-mode-v4.0.6...paseo-context-mode-v5.0.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **context-mode:** bundles Context Mode 2.1.4 and requires Node.js 24.15 or later. Cursor, Pi and OMP agents no longer get an injected server because Context Mode 2 cannot serve them over MCP. Only Context Mode 2 databases are read; 1.x data is left untouched and not shown. Agents created by an older plugin version must be recreated to pick up the new server entry.
+* **context-mode:** requires Paseo ^0.12.0. The includeBackground option throws on older hosts.
+* the affected plugins no longer load on Paseo 0.9 or 0.10. Screen and sidebar IDs, params and settings are unchanged.
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170))
+
+### Features
+
+* add listing icon to plugin manifests ([#418](https://github.com/g0rdonL/paseo-plugins/issues/418)) ([2e7aadd](https://github.com/g0rdonL/paseo-plugins/commit/2e7aaddac381bb2a5c596f95b1f9b7b8aee89cb2))
+* **context-mode:** add provider-aware integration ([#136](https://github.com/g0rdonL/paseo-plugins/issues/136)) ([304db0a](https://github.com/g0rdonL/paseo-plugins/commit/304db0a36627d62224cd16f1003e838f82427a2e))
+* **context-mode:** Paseo 0.11 screen, scoped Knowledge pill and sidebar health row ([#255](https://github.com/g0rdonL/paseo-plugins/issues/255)) ([3607735](https://github.com/g0rdonL/paseo-plugins/commit/36077351f942405451995d31e7b853c5100b59f7))
+* **context-mode:** run on Context Mode 2.1.4 ([#544](https://github.com/g0rdonL/paseo-plugins/issues/544)) ([91781c6](https://github.com/g0rdonL/paseo-plugins/commit/91781c6b3525322bafaa0a342f0764d6097420ad))
+* **plugins:** declare Paseo 0.11 compatibility ([#248](https://github.com/g0rdonL/paseo-plugins/issues/248)) ([f983a8b](https://github.com/g0rdonL/paseo-plugins/commit/f983a8bf2025f009c178c15183d6cfac0b2024dd))
+* **plugins:** support Paseo 0.10.1 ([#221](https://github.com/g0rdonL/paseo-plugins/issues/221)) ([9d71ea0](https://github.com/g0rdonL/paseo-plugins/commit/9d71ea09eaa9ed67429813ed3e2de2567c14c825))
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170)) ([04acfca](https://github.com/g0rdonL/paseo-plugins/commit/04acfcabcf8140edbd3a98681a72cabef7bb74ba))
+* require Paseo 0.11 and drop legacy surface navigation ([#286](https://github.com/g0rdonL/paseo-plugins/issues/286)) ([a46fe9e](https://github.com/g0rdonL/paseo-plugins/commit/a46fe9ee910c2cc485043d53c67dacf49bab402b))
+
+
+### Bug Fixes
+
+* **context-mode:** cover configured providers in Savings and Knowledge ([#311](https://github.com/g0rdonL/paseo-plugins/issues/311)) ([bcb9ded](https://github.com/g0rdonL/paseo-plugins/commit/bcb9dedf31ecf74acb1cb6d1f0f9e1dca48a23ef))
+* **context-mode:** derive PaseoApi type from host plugin client ([#288](https://github.com/g0rdonL/paseo-plugins/issues/288)) ([5cb9797](https://github.com/g0rdonL/paseo-plugins/commit/5cb9797df720f341deb8a0a8542ef617f89dc102))
+* **context-mode:** evict only the cache entry that failed ([#550](https://github.com/g0rdonL/paseo-plugins/issues/550)) ([fc261cf](https://github.com/g0rdonL/paseo-plugins/commit/fc261cf50435254414096b5aa17977f771b3fa46))
+* **context-mode:** inject into providers derived via extends ([#306](https://github.com/g0rdonL/paseo-plugins/issues/306)) ([459f12a](https://github.com/g0rdonL/paseo-plugins/commit/459f12a6ff181e67dfd178b2d1e27cad05c4413e))
+* **context-mode:** replace the D1 host update command with plugin upgrade advice ([#630](https://github.com/g0rdonL/paseo-plugins/issues/630)) ([00818ed](https://github.com/g0rdonL/paseo-plugins/commit/00818edd685673c62e06809d63342feb0f8588d5))
+* **context-mode:** resolve the bundled runtime from the plugin directory ([#452](https://github.com/g0rdonL/paseo-plugins/issues/452)) ([9529e18](https://github.com/g0rdonL/paseo-plugins/commit/9529e182f539e5ce7f3597ed277d1ecd04a24721))
+* **context-mode:** run panel probes against a plugin-owned storage root ([#334](https://github.com/g0rdonL/paseo-plugins/issues/334)) ([344001e](https://github.com/g0rdonL/paseo-plugins/commit/344001e424d58aac79e2fa7f869ef465ca8070be))
+* **context-mode:** show the composer pill in background workspaces ([#349](https://github.com/g0rdonL/paseo-plugins/issues/349)) ([605b573](https://github.com/g0rdonL/paseo-plugins/commit/605b573fff8d6b15a6033bcfd4e464dcdb7b8a97))
+* **context-mode:** treat agent or workspace from another host as unscoped ([#318](https://github.com/g0rdonL/paseo-plugins/issues/318)) ([0b17694](https://github.com/g0rdonL/paseo-plugins/commit/0b17694a87cc2eb5ad631d65e2e8f05561d90503))
+* **deps:** support Paseo 0.14.0 ([#429](https://github.com/g0rdonL/paseo-plugins/issues/429)) ([7d79f4c](https://github.com/g0rdonL/paseo-plugins/commit/7d79f4cec882888dd48f0674957d3cd8b97a720b))
+* **deps:** support Paseo 0.14.0-beta.1 ([0f019e0](https://github.com/g0rdonL/paseo-plugins/commit/0f019e054992660f589c14894c4382d51325dc31))
+* **deps:** support Paseo 0.15.0 ([#488](https://github.com/g0rdonL/paseo-plugins/issues/488)) ([7e03060](https://github.com/g0rdonL/paseo-plugins/commit/7e0306043670294badb5b6c2c5b374c9c84da457))
+* **deps:** support Paseo 0.15.0-beta.1 ([#479](https://github.com/g0rdonL/paseo-plugins/issues/479)) ([89f4559](https://github.com/g0rdonL/paseo-plugins/commit/89f45597a6f634c856def38ed6a5a76782083a8b))
+* **deps:** support Paseo 0.16 ([#574](https://github.com/g0rdonL/paseo-plugins/issues/574)) ([e53096c](https://github.com/g0rdonL/paseo-plugins/commit/e53096cea4c11ed81de3757c9f9710fa0042b723))
+* **deps:** update dependency context-mode to v2.1.10 ([#621](https://github.com/g0rdonL/paseo-plugins/issues/621)) ([bb9d91f](https://github.com/g0rdonL/paseo-plugins/commit/bb9d91ffe97b8fb22ca86f4cbd3dc003eeae29c2))
+* **deps:** update dependency context-mode to v2.1.5 ([#567](https://github.com/g0rdonL/paseo-plugins/issues/567)) ([e541117](https://github.com/g0rdonL/paseo-plugins/commit/e54111792d24d65bf529d06799af1dafd1cad86b))
+* **deps:** update dependency context-mode to v2.1.6 ([#589](https://github.com/g0rdonL/paseo-plugins/issues/589)) ([6e369b1](https://github.com/g0rdonL/paseo-plugins/commit/6e369b10518e13fdafd4e25d79c6ee3f287b8c8d))
+* **deps:** update dependency context-mode to v2.1.7 ([#593](https://github.com/g0rdonL/paseo-plugins/issues/593)) ([3f033e9](https://github.com/g0rdonL/paseo-plugins/commit/3f033e90d04e548faad89847b06ce817d293096c))
+* **packaging:** lock npm runtime dependencies with npm-shrinkwrap.json ([#300](https://github.com/g0rdonL/paseo-plugins/issues/300)) ([1b0755c](https://github.com/g0rdonL/paseo-plugins/commit/1b0755c9097681cdc167fb26bd2d1c3cc5e72830))
+* **plugins:** accept Paseo 0.13 in the plugin manifest range ([bdb9435](https://github.com/g0rdonL/paseo-plugins/commit/bdb943595515ab7f21a93c66cffeb6844bacdcdb))
+* **plugins:** declare Paseo 0.12 compatibility ([7dbbe2a](https://github.com/g0rdonL/paseo-plugins/commit/7dbbe2a15aa7fb92ae846afa89a174cbed749f8e))
+* **plugins:** prepare for Paseo 0.10 beta ([#186](https://github.com/g0rdonL/paseo-plugins/issues/186)) ([0294fd0](https://github.com/g0rdonL/paseo-plugins/commit/0294fd0fd7ad5101e724d4196a49ac27783b5483))
+* **plugins:** ship OVERVIEW.md in published packages ([640f9a4](https://github.com/g0rdonL/paseo-plugins/commit/640f9a4d7bd6dbad226c4ee1ebaa199abfc62776))
+* **ui:** raise context-mode eyebrow contrast and fix radar empty-queue copy ([#290](https://github.com/g0rdonL/paseo-plugins/issues/290)) ([ed16e30](https://github.com/g0rdonL/paseo-plugins/commit/ed16e30efe09aef0c4ebdee9b6d69d25e0e3cb2e))
+
 ## [4.0.6](https://github.com/omercnet/paseo-plugins/compare/paseo-context-mode-v4.0.5...paseo-context-mode-v4.0.6) (2026-11-16)
 
 

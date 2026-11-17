@@ -6,6 +6,52 @@
 
 * Migrate PR Radar to Paseo 0.8 runtime entries.
 
+## [4.0.0](https://github.com/g0rdonL/paseo-plugins/compare/pr-radar-v3.2.3...pr-radar-v4.0.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **pr-radar:** requires Paseo ^0.12.0. The includeBackground option throws on older hosts.
+* the affected plugins no longer load on Paseo 0.9 or 0.10. Screen and sidebar IDs, params and settings are unchanged.
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170))
+
+### Features
+
+* add listing icon to plugin manifests ([#418](https://github.com/g0rdonL/paseo-plugins/issues/418)) ([2e7aadd](https://github.com/g0rdonL/paseo-plugins/commit/2e7aaddac381bb2a5c596f95b1f9b7b8aee89cb2))
+* **plugins:** declare Paseo 0.11 compatibility ([#248](https://github.com/g0rdonL/paseo-plugins/issues/248)) ([f983a8b](https://github.com/g0rdonL/paseo-plugins/commit/f983a8bf2025f009c178c15183d6cfac0b2024dd))
+* **plugins:** support Paseo 0.10.1 ([#221](https://github.com/g0rdonL/paseo-plugins/issues/221)) ([9d71ea0](https://github.com/g0rdonL/paseo-plugins/commit/9d71ea09eaa9ed67429813ed3e2de2567c14c825))
+* **pr-radar:** add copy-link button to PR cards ([#369](https://github.com/g0rdonL/paseo-plugins/issues/369)) ([@g0rdon](https://github.com/g0rdon)L) ([090dfd2](https://github.com/g0rdonL/paseo-plugins/commit/090dfd2a7dc529b68830519e8ab9b04d960cc7ea))
+* **pr-radar:** add sort options to the radar ([#374](https://github.com/g0rdonL/paseo-plugins/issues/374)) ([@g0rdon](https://github.com/g0rdon)L) ([188859b](https://github.com/g0rdonL/paseo-plugins/commit/188859b71b0384e565966ca2fcf4c0deed5d1d25))
+* **pr-radar:** collapse flip-flopping PR changes into their net change ([#373](https://github.com/g0rdonL/paseo-plugins/issues/373)) ([@g0rdon](https://github.com/g0rdon)L) ([d0ce35d](https://github.com/g0rdonL/paseo-plugins/commit/d0ce35d63abdfb68639807974e98c7f456e66b66))
+* **pr-radar:** keep filter chips on one horizontally scrolling line ([#371](https://github.com/g0rdonL/paseo-plugins/issues/371)) ([@g0rdon](https://github.com/g0rdon)L) ([1b6f357](https://github.com/g0rdonL/paseo-plugins/commit/1b6f357863077dad2245a15efe4302bd9b83b6d9))
+* **pr-radar:** needs-you sidebar row, popover and linkable screen on Paseo 0.11 ([#253](https://github.com/g0rdonL/paseo-plugins/issues/253)) ([aab9f00](https://github.com/g0rdonL/paseo-plugins/commit/aab9f00d736100881afcf8aed7b01bfef3c1d307))
+* **pr-radar:** refresh GitHub data in the background, answer from memory ([#375](https://github.com/g0rdonL/paseo-plugins/issues/375)) ([@g0rdon](https://github.com/g0rdon)L) ([f212e49](https://github.com/g0rdonL/paseo-plugins/commit/f212e49ce2d619af7480481c013fce1740f30060))
+* **pr-radar:** use the compact card layout in narrow panes ([#370](https://github.com/g0rdonL/paseo-plugins/issues/370)) ([@g0rdon](https://github.com/g0rdon)L) ([169276f](https://github.com/g0rdonL/paseo-plugins/commit/169276f596a2a923e899fa0d894f75fe974db75e))
+* **release:** publish plugins to npm ([#80](https://github.com/g0rdonL/paseo-plugins/issues/80)) ([3c93048](https://github.com/g0rdonL/paseo-plugins/commit/3c93048cfefda97d8c2bc1631e3428fb64bdad09))
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170)) ([04acfca](https://github.com/g0rdonL/paseo-plugins/commit/04acfcabcf8140edbd3a98681a72cabef7bb74ba))
+* require Paseo 0.11 and drop legacy surface navigation ([#286](https://github.com/g0rdonL/paseo-plugins/issues/286)) ([a46fe9e](https://github.com/g0rdonL/paseo-plugins/commit/a46fe9ee910c2cc485043d53c67dacf49bab402b))
+
+
+### Bug Fixes
+
+* **deps:** support Paseo 0.14.0-beta.1 ([0f019e0](https://github.com/g0rdonL/paseo-plugins/commit/0f019e054992660f589c14894c4382d51325dc31))
+* **deps:** support Paseo 0.15.0-beta.1 ([#479](https://github.com/g0rdonL/paseo-plugins/issues/479)) ([89f4559](https://github.com/g0rdonL/paseo-plugins/commit/89f45597a6f634c856def38ed6a5a76782083a8b))
+* **deps:** support Paseo 0.16 ([#574](https://github.com/g0rdonL/paseo-plugins/issues/574)) ([e53096c](https://github.com/g0rdonL/paseo-plugins/commit/e53096cea4c11ed81de3757c9f9710fa0042b723))
+* **plugins:** accept Paseo 0.13 in the plugin manifest range ([bdb9435](https://github.com/g0rdonL/paseo-plugins/commit/bdb943595515ab7f21a93c66cffeb6844bacdcdb))
+* **plugins:** declare Paseo 0.12 compatibility ([7dbbe2a](https://github.com/g0rdonL/paseo-plugins/commit/7dbbe2a15aa7fb92ae846afa89a174cbed749f8e))
+* **plugins:** prepare for Paseo 0.10 beta ([#186](https://github.com/g0rdonL/paseo-plugins/issues/186)) ([0294fd0](https://github.com/g0rdonL/paseo-plugins/commit/0294fd0fd7ad5101e724d4196a49ac27783b5483))
+* **plugins:** ship OVERVIEW.md in published packages ([640f9a4](https://github.com/g0rdonL/paseo-plugins/commit/640f9a4d7bd6dbad226c4ee1ebaa199abfc62776))
+* **pr-radar:** don't label a just-opened PR as external ([@g0rdon](https://github.com/g0rdon)L) ([5a00c76](https://github.com/g0rdonL/paseo-plugins/commit/5a00c76977b5ea672d66a3ddc8e6b554e48773cf))
+* **pr-radar:** fix version constraint for paseo in JSON ([#104](https://github.com/g0rdonL/paseo-plugins/issues/104)) ([13f076d](https://github.com/g0rdonL/paseo-plugins/commit/13f076d6235c33b543193cbe90e7ab0d887a996c))
+* **pr-radar:** honor PASEO_HOME for inbox state ([#283](https://github.com/g0rdonL/paseo-plugins/issues/283)) ([debe292](https://github.com/g0rdonL/paseo-plugins/commit/debe2927653212455e5f08d91028b83826867fd9))
+* **pr-radar:** include background workspaces and page agents stably ([#347](https://github.com/g0rdonL/paseo-plugins/issues/347)) ([8d8897b](https://github.com/g0rdonL/paseo-plugins/commit/8d8897ba6de2029bdb96eeb603db6214e41f72ae))
+* **pr-radar:** keep helper agents off PR rows ([#603](https://github.com/g0rdonL/paseo-plugins/issues/603)) ([cbbf7f6](https://github.com/g0rdonL/paseo-plugins/commit/cbbf7f6eee6398ea98d415694f50eaa1792fbc3e))
+* **pr-radar:** limit concurrent GitHub searches to reduce rate-limit bursts ([#372](https://github.com/g0rdonL/paseo-plugins/issues/372)) ([@g0rdon](https://github.com/g0rdon)L) ([c57a8ed](https://github.com/g0rdonL/paseo-plugins/commit/c57a8edda6659acb5d179fd9664e2185aebdcb89))
+* **pr-radar:** observe owned directories ([#161](https://github.com/g0rdonL/paseo-plugins/issues/161)) ([fb52c34](https://github.com/g0rdonL/paseo-plugins/commit/fb52c34258ab0098126328307c8f82d8a99b32ac))
+* **pr-radar:** pass a profile's provider options when starting an agent ([#576](https://github.com/g0rdonL/paseo-plugins/issues/576)) ([1707853](https://github.com/g0rdonL/paseo-plugins/commit/17078535f1972a84d438571c0e28a8cf2fa2b446))
+* **pr-radar:** support Paseo 0.9 beta ([#101](https://github.com/g0rdonL/paseo-plugins/issues/101)) ([99cca96](https://github.com/g0rdonL/paseo-plugins/commit/99cca96e0869e113bd3b0df69ad46b01617ba50d))
+* **ui:** raise context-mode eyebrow contrast and fix radar empty-queue copy ([#290](https://github.com/g0rdonL/paseo-plugins/issues/290)) ([ed16e30](https://github.com/g0rdonL/paseo-plugins/commit/ed16e30efe09aef0c4ebdee9b6d69d25e0e3cb2e))
+
 ## [3.2.3](https://github.com/omercnet/paseo-plugins/compare/pr-radar-v3.2.2...pr-radar-v3.2.3) (2026-11-14)
 
 

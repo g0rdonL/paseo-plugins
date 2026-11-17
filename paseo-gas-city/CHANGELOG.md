@@ -1,5 +1,38 @@
 # Changelog
 
+## [3.0.0](https://github.com/g0rdonL/paseo-plugins/compare/paseo-gas-city-v2.1.3...paseo-gas-city-v3.0.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* the affected plugins no longer load on Paseo 0.9 or 0.10. Screen and sidebar IDs, params and settings are unchanged.
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170))
+
+### Features
+
+* add listing icon to plugin manifests ([#418](https://github.com/g0rdonL/paseo-plugins/issues/418)) ([2e7aadd](https://github.com/g0rdonL/paseo-plugins/commit/2e7aaddac381bb2a5c596f95b1f9b7b8aee89cb2))
+* **gas-city:** add operator control-plane plugin ([#15](https://github.com/g0rdonL/paseo-plugins/issues/15)) ([42b17ce](https://github.com/g0rdonL/paseo-plugins/commit/42b17ce9e894f8c39c02be2cdc288cac78fb0124))
+* **gas-city:** sidebar health row, city popover and per-city screens on Paseo 0.11 ([#252](https://github.com/g0rdonL/paseo-plugins/issues/252)) ([f87fc12](https://github.com/g0rdonL/paseo-plugins/commit/f87fc12ffbb39e41c2ea4185cf706f3be99f1092))
+* **plugins:** declare Paseo 0.11 compatibility ([#248](https://github.com/g0rdonL/paseo-plugins/issues/248)) ([f983a8b](https://github.com/g0rdonL/paseo-plugins/commit/f983a8bf2025f009c178c15183d6cfac0b2024dd))
+* **plugins:** support Paseo 0.10.1 ([#221](https://github.com/g0rdonL/paseo-plugins/issues/221)) ([9d71ea0](https://github.com/g0rdonL/paseo-plugins/commit/9d71ea09eaa9ed67429813ed3e2de2567c14c825))
+* **release:** publish plugins to npm ([#80](https://github.com/g0rdonL/paseo-plugins/issues/80)) ([3c93048](https://github.com/g0rdonL/paseo-plugins/commit/3c93048cfefda97d8c2bc1631e3428fb64bdad09))
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170)) ([04acfca](https://github.com/g0rdonL/paseo-plugins/commit/04acfcabcf8140edbd3a98681a72cabef7bb74ba))
+* require Paseo 0.11 and drop legacy surface navigation ([#286](https://github.com/g0rdonL/paseo-plugins/issues/286)) ([a46fe9e](https://github.com/g0rdonL/paseo-plugins/commit/a46fe9ee910c2cc485043d53c67dacf49bab402b))
+
+
+### Bug Fixes
+
+* **deps:** support Paseo 0.14.0-beta.1 ([0f019e0](https://github.com/g0rdonL/paseo-plugins/commit/0f019e054992660f589c14894c4382d51325dc31))
+* **deps:** support Paseo 0.15.0-beta.1 ([#479](https://github.com/g0rdonL/paseo-plugins/issues/479)) ([89f4559](https://github.com/g0rdonL/paseo-plugins/commit/89f45597a6f634c856def38ed6a5a76782083a8b))
+* **deps:** support Paseo 0.16 ([#574](https://github.com/g0rdonL/paseo-plugins/issues/574)) ([e53096c](https://github.com/g0rdonL/paseo-plugins/commit/e53096cea4c11ed81de3757c9f9710fa0042b723))
+* **gas-city:** support Paseo 0.9 beta settings ([#102](https://github.com/g0rdonL/paseo-plugins/issues/102)) ([dd4ccda](https://github.com/g0rdonL/paseo-plugins/commit/dd4ccda0d85e4160c9ad39d5a9045fb690ed5510))
+* **gas-city:** support Paseo 0.9 beta settings ([#91](https://github.com/g0rdonL/paseo-plugins/issues/91)) ([15c9a97](https://github.com/g0rdonL/paseo-plugins/commit/15c9a970ce5fccd7a09ed4284b8aa2d37c43b464))
+* **paseo-gas-city:** hold a /sling intent until the running dispatch settles ([#555](https://github.com/g0rdonL/paseo-plugins/issues/555)) ([3aac432](https://github.com/g0rdonL/paseo-plugins/commit/3aac43204b9e22142221355fa37a5585e842db4a))
+* **plugins:** accept Paseo 0.13 in the plugin manifest range ([bdb9435](https://github.com/g0rdonL/paseo-plugins/commit/bdb943595515ab7f21a93c66cffeb6844bacdcdb))
+* **plugins:** declare Paseo 0.12 compatibility ([7dbbe2a](https://github.com/g0rdonL/paseo-plugins/commit/7dbbe2a15aa7fb92ae846afa89a174cbed749f8e))
+* **plugins:** prepare for Paseo 0.10 beta ([#186](https://github.com/g0rdonL/paseo-plugins/issues/186)) ([0294fd0](https://github.com/g0rdonL/paseo-plugins/commit/0294fd0fd7ad5101e724d4196a49ac27783b5483))
+* **plugins:** ship OVERVIEW.md in published packages ([640f9a4](https://github.com/g0rdonL/paseo-plugins/commit/640f9a4d7bd6dbad226c4ee1ebaa199abfc62776))
+
 ## [2.1.3](https://github.com/omercnet/paseo-plugins/compare/paseo-gas-city-v2.1.2...paseo-gas-city-v2.1.3) (2026-11-10)
 
 

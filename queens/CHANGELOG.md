@@ -1,5 +1,43 @@
 # Changelog
 
+## [5.0.0](https://github.com/g0rdonL/paseo-plugins/compare/queens-v4.1.4...queens-v5.0.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **queens:** requires Paseo ^0.12.0. The includeBackground option throws on older hosts.
+* the affected plugins no longer load on Paseo 0.9 or 0.10. Screen and sidebar IDs, params and settings are unchanged.
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170))
+
+### Features
+
+* add listing icon to plugin manifests ([#418](https://github.com/g0rdonL/paseo-plugins/issues/418)) ([2e7aadd](https://github.com/g0rdonL/paseo-plugins/commit/2e7aaddac381bb2a5c596f95b1f9b7b8aee89cb2))
+* **plugins:** declare Paseo 0.11 compatibility ([#248](https://github.com/g0rdonL/paseo-plugins/issues/248)) ([f983a8b](https://github.com/g0rdonL/paseo-plugins/commit/f983a8bf2025f009c178c15183d6cfac0b2024dd))
+* **plugins:** support Paseo 0.10.1 ([#221](https://github.com/g0rdonL/paseo-plugins/issues/221)) ([9d71ea0](https://github.com/g0rdonL/paseo-plugins/commit/9d71ea09eaa9ed67429813ed3e2de2567c14c825))
+* **queens:** add Queens puzzle plugin ([#141](https://github.com/g0rdonL/paseo-plugins/issues/141)) ([57698c3](https://github.com/g0rdonL/paseo-plugins/commit/57698c35caf5ffb33ed4073f6cc52a8eb2b79a28))
+* **queens:** open puzzles as linkable screens with sidebar progress ([#257](https://github.com/g0rdonL/paseo-plugins/issues/257)) ([43a8332](https://github.com/g0rdonL/paseo-plugins/commit/43a8332c34facc44cce984924f01e9db740352bb))
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170)) ([04acfca](https://github.com/g0rdonL/paseo-plugins/commit/04acfcabcf8140edbd3a98681a72cabef7bb74ba))
+* require Paseo 0.11 and drop legacy surface navigation ([#286](https://github.com/g0rdonL/paseo-plugins/issues/286)) ([a46fe9e](https://github.com/g0rdonL/paseo-plugins/commit/a46fe9ee910c2cc485043d53c67dacf49bab402b))
+
+
+### Bug Fixes
+
+* **deps:** support Paseo 0.14.0-beta.1 ([0f019e0](https://github.com/g0rdonL/paseo-plugins/commit/0f019e054992660f589c14894c4382d51325dc31))
+* **deps:** support Paseo 0.15.0-beta.1 ([#479](https://github.com/g0rdonL/paseo-plugins/issues/479)) ([89f4559](https://github.com/g0rdonL/paseo-plugins/commit/89f45597a6f634c856def38ed6a5a76782083a8b))
+* **deps:** support Paseo 0.16 ([#574](https://github.com/g0rdonL/paseo-plugins/issues/574)) ([e53096c](https://github.com/g0rdonL/paseo-plugins/commit/e53096cea4c11ed81de3757c9f9710fa0042b723))
+* **plugins:** accept Paseo 0.13 in the plugin manifest range ([bdb9435](https://github.com/g0rdonL/paseo-plugins/commit/bdb943595515ab7f21a93c66cffeb6844bacdcdb))
+* **plugins:** declare Paseo 0.12 compatibility ([7dbbe2a](https://github.com/g0rdonL/paseo-plugins/commit/7dbbe2a15aa7fb92ae846afa89a174cbed749f8e))
+* **plugins:** prepare for Paseo 0.10 beta ([#186](https://github.com/g0rdonL/paseo-plugins/issues/186)) ([0294fd0](https://github.com/g0rdonL/paseo-plugins/commit/0294fd0fd7ad5101e724d4196a49ac27783b5483))
+* **plugins:** ship OVERVIEW.md in published packages ([640f9a4](https://github.com/g0rdonL/paseo-plugins/commit/640f9a4d7bd6dbad226c4ee1ebaa199abfc62776))
+* **queens:** include background workspaces ([#350](https://github.com/g0rdonL/paseo-plugins/issues/350)) ([af6be35](https://github.com/g0rdonL/paseo-plugins/commit/af6be35fd495d0437f8fa623daca2cdb8639d8d1))
+* **queens:** keep the popover timer on a steady cadence ([#557](https://github.com/g0rdonL/paseo-plugins/issues/557)) ([e6cf113](https://github.com/g0rdonL/paseo-plugins/commit/e6cf113374374d7a697bb86ab1ddc7b4b27f071d))
+* **queens:** leave helper agents out of the running-agent count ([#599](https://github.com/g0rdonL/paseo-plugins/issues/599)) ([97c7479](https://github.com/g0rdonL/paseo-plugins/commit/97c7479bcf01df66e74c470edf8426d757d9604b))
+* **queens:** observe owned agent directories ([#165](https://github.com/g0rdonL/paseo-plugins/issues/165)) ([4c3cd02](https://github.com/g0rdonL/paseo-plugins/commit/4c3cd028277a54332cd19372e7aa9f813c0c5e6b))
+* **queens:** preserve queens during drags ([#147](https://github.com/g0rdonL/paseo-plugins/issues/147)) ([9fbc2e0](https://github.com/g0rdonL/paseo-plugins/commit/9fbc2e093cfcb6071ed219e3e4d4d9e4af8add48))
+* **queens:** re-acquire the shared controller after another instance recovers ([#548](https://github.com/g0rdonL/paseo-plugins/issues/548)) ([3b7e83f](https://github.com/g0rdonL/paseo-plugins/commit/3b7e83fe3767f403afa11fa36f12e802cf5f54c7))
+* **queens:** restore composer puzzle navigation ([#145](https://github.com/g0rdonL/paseo-plugins/issues/145)) ([379e371](https://github.com/g0rdonL/paseo-plugins/commit/379e371882d114d6a514f22cae4287aee230f7b9))
+* **queens:** skip no-op writes so an unchanged revision cannot strand the save queue ([#546](https://github.com/g0rdonL/paseo-plugins/issues/546)) ([38da636](https://github.com/g0rdonL/paseo-plugins/commit/38da636217b32afbe4ba792b8a5a9c3310c57d5b))
+
 ## [4.1.4](https://github.com/omercnet/paseo-plugins/compare/queens-v4.1.3...queens-v4.1.4) (2026-11-14)
 
 

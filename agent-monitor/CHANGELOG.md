@@ -10,6 +10,49 @@
 
 * **settings:** stop exposing the non-persistent Remember last bucket option
 
+## [5.0.0](https://github.com/g0rdonL/paseo-plugins/compare/agent-monitor-v4.4.5...agent-monitor-v5.0.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **agent-monitor:** agent-monitor now requires Paseo 0.13; the manifest range is ^0.13.0 and Paseo 0.12 hosts are no longer supported.
+* **agent-monitor:** requires Paseo ^0.12.0. The includeBackground option throws on older hosts.
+* the affected plugins no longer load on Paseo 0.9 or 0.10. Screen and sidebar IDs, params and settings are unchanged.
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170))
+
+### Features
+
+* add listing icon to plugin manifests ([#418](https://github.com/g0rdonL/paseo-plugins/issues/418)) ([2e7aadd](https://github.com/g0rdonL/paseo-plugins/commit/2e7aaddac381bb2a5c596f95b1f9b7b8aee89cb2))
+* **agent-monitor:** add an interactive agent graph ([#364](https://github.com/g0rdonL/paseo-plugins/issues/364)) ([@andresantoniuk](https://github.com/andresantoniuk)) ([4e99d73](https://github.com/g0rdonL/paseo-plugins/commit/4e99d73da8f874b9385a35fa342ce3daabac8537))
+* **agent-monitor:** group and sort the roster independently ([#433](https://github.com/g0rdonL/paseo-plugins/issues/433)) ([@andresantoniuk](https://github.com/andresantoniuk)) ([c92938e](https://github.com/g0rdonL/paseo-plugins/commit/c92938ef61ea56169af06a8d051756bed365210b))
+* **agent-monitor:** live sidebar row, attention popover and monitor screen params ([#256](https://github.com/g0rdonL/paseo-plugins/issues/256)) ([b6b8123](https://github.com/g0rdonL/paseo-plugins/commit/b6b8123bc985a6b7e1659099d1a8eb2fd7de5b90))
+* **agent-monitor:** multi-host roster, graph and mission control ([#424](https://github.com/g0rdonL/paseo-plugins/issues/424)) ([@andresantoniuk](https://github.com/andresantoniuk)) ([60f0ab2](https://github.com/g0rdonL/paseo-plugins/commit/60f0ab221d26d398123f484e344a027544be51cd))
+* **agent-monitor:** require Paseo 0.13 and handle cross-host delegated agents ([#383](https://github.com/g0rdonL/paseo-plugins/issues/383)) ([3314e99](https://github.com/g0rdonL/paseo-plugins/commit/3314e99b5ebb2177bea0c20c00a4fee249aab38e))
+* **plugins:** declare Paseo 0.11 compatibility ([#248](https://github.com/g0rdonL/paseo-plugins/issues/248)) ([f983a8b](https://github.com/g0rdonL/paseo-plugins/commit/f983a8bf2025f009c178c15183d6cfac0b2024dd))
+* **plugins:** support Paseo 0.10.1 ([#221](https://github.com/g0rdonL/paseo-plugins/issues/221)) ([9d71ea0](https://github.com/g0rdonL/paseo-plugins/commit/9d71ea09eaa9ed67429813ed3e2de2567c14c825))
+* **release:** publish plugins to npm ([#80](https://github.com/g0rdonL/paseo-plugins/issues/80)) ([3c93048](https://github.com/g0rdonL/paseo-plugins/commit/3c93048cfefda97d8c2bc1631e3428fb64bdad09))
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170)) ([04acfca](https://github.com/g0rdonL/paseo-plugins/commit/04acfcabcf8140edbd3a98681a72cabef7bb74ba))
+* require Paseo 0.11 and drop legacy surface navigation ([#286](https://github.com/g0rdonL/paseo-plugins/issues/286)) ([a46fe9e](https://github.com/g0rdonL/paseo-plugins/commit/a46fe9ee910c2cc485043d53c67dacf49bab402b))
+
+
+### Bug Fixes
+
+* **agent-monitor:** do not call addEventListener where window has none ([#430](https://github.com/g0rdonL/paseo-plugins/issues/430)) ([@andresantoniuk](https://github.com/andresantoniuk)) ([404656f](https://github.com/g0rdonL/paseo-plugins/commit/404656ff56707e86f3ae7e0b13f879eaf57b58d0))
+* **agent-monitor:** hide background helpers and count background work as running ([#604](https://github.com/g0rdonL/paseo-plugins/issues/604)) ([7b52016](https://github.com/g0rdonL/paseo-plugins/commit/7b520166eccfcbbbdc0020b9785e1d7c48433221))
+* **agent-monitor:** include background workspaces and page agents stably ([#346](https://github.com/g0rdonL/paseo-plugins/issues/346)) ([731b6f6](https://github.com/g0rdonL/paseo-plugins/commit/731b6f62626030e18987d690b5549e423cf2d6f7))
+* **agent-monitor:** let a deep link win over a stale pending focus ([#549](https://github.com/g0rdonL/paseo-plugins/issues/549)) ([e27b280](https://github.com/g0rdonL/paseo-plugins/commit/e27b2803201fcb6e1ffa415b979bff9e0e9cc14c))
+* **agent-monitor:** own directory observations ([#162](https://github.com/g0rdonL/paseo-plugins/issues/162)) ([961906c](https://github.com/g0rdonL/paseo-plugins/commit/961906c9354a5cbd1ed6d65c4e50be3b523a91f4))
+* **agent-monitor:** prefer first-class parentAgentId with legacy label fallback ([#285](https://github.com/g0rdonL/paseo-plugins/issues/285)) ([2e3ce7f](https://github.com/g0rdonL/paseo-plugins/commit/2e3ce7f86e52fd2ffa448977b1e3fab5bd2f59e7))
+* **agent-monitor:** stop importing types from @getpaseo/client in shipped client code ([#585](https://github.com/g0rdonL/paseo-plugins/issues/585)) ([9903409](https://github.com/g0rdonL/paseo-plugins/commit/990340905511c43731297dd7ebbb376a684118dd))
+* **agent-monitor:** support Paseo 0.9 beta ([#83](https://github.com/g0rdonL/paseo-plugins/issues/83)) ([6a52638](https://github.com/g0rdonL/paseo-plugins/commit/6a52638645d6fc9b5e9b586444af561a84bcd358))
+* **deps:** support Paseo 0.14.0-beta.1 ([0f019e0](https://github.com/g0rdonL/paseo-plugins/commit/0f019e054992660f589c14894c4382d51325dc31))
+* **deps:** support Paseo 0.15.0-beta.1 ([#479](https://github.com/g0rdonL/paseo-plugins/issues/479)) ([89f4559](https://github.com/g0rdonL/paseo-plugins/commit/89f45597a6f634c856def38ed6a5a76782083a8b))
+* **deps:** support Paseo 0.16 ([#574](https://github.com/g0rdonL/paseo-plugins/issues/574)) ([e53096c](https://github.com/g0rdonL/paseo-plugins/commit/e53096cea4c11ed81de3757c9f9710fa0042b723))
+* **plugins:** accept Paseo 0.13 in the plugin manifest range ([bdb9435](https://github.com/g0rdonL/paseo-plugins/commit/bdb943595515ab7f21a93c66cffeb6844bacdcdb))
+* **plugins:** declare Paseo 0.12 compatibility ([7dbbe2a](https://github.com/g0rdonL/paseo-plugins/commit/7dbbe2a15aa7fb92ae846afa89a174cbed749f8e))
+* **plugins:** prepare for Paseo 0.10 beta ([#186](https://github.com/g0rdonL/paseo-plugins/issues/186)) ([0294fd0](https://github.com/g0rdonL/paseo-plugins/commit/0294fd0fd7ad5101e724d4196a49ac27783b5483))
+* **plugins:** ship OVERVIEW.md in published packages ([640f9a4](https://github.com/g0rdonL/paseo-plugins/commit/640f9a4d7bd6dbad226c4ee1ebaa199abfc62776))
+
 ## [4.4.5](https://github.com/omercnet/paseo-plugins/compare/agent-monitor-v4.4.4...agent-monitor-v4.4.5) (2026-11-14)
 
 

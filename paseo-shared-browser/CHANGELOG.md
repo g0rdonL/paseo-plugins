@@ -1,5 +1,76 @@
 # Changelog
 
+## [5.0.0](https://github.com/g0rdonL/paseo-plugins/compare/shared-browser-v4.1.12...shared-browser-v5.0.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **paseo-shared-browser:** the plugin now requires Paseo 0.13 (requirements.paseo is ^0.13.0); it no longer loads on Paseo 0.12.
+* **paseo-shared-browser:** requires Paseo ^0.12.0. The includeBackground option throws on older hosts.
+* the affected plugins no longer load on Paseo 0.9 or 0.10. Screen and sidebar IDs, params and settings are unchanged.
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170))
+
+### Features
+
+* add listing icon to plugin manifests ([#418](https://github.com/g0rdonL/paseo-plugins/issues/418)) ([2e7aadd](https://github.com/g0rdonL/paseo-plugins/commit/2e7aaddac381bb2a5c596f95b1f9b7b8aee89cb2))
+* **paseo-shared-browser:** add tab-scoped input and opt-in video ([#274](https://github.com/g0rdonL/paseo-plugins/issues/274)) (@RyanEwen) ([ba97d79](https://github.com/g0rdonL/paseo-plugins/commit/ba97d794d4c82f3ccd38c102e05d797874c75ddd))
+* **paseo-shared-browser:** inject MCP into OMP on Paseo 0.11 and add sidebar footer row ([#258](https://github.com/g0rdonL/paseo-plugins/issues/258)) ([09593b9](https://github.com/g0rdonL/paseo-plugins/commit/09593b9afb30627b9714ced00deb0168e2781f58))
+* **paseo-shared-browser:** require Paseo 0.13 and persist panel state ([#384](https://github.com/g0rdonL/paseo-plugins/issues/384)) ([9195eec](https://github.com/g0rdonL/paseo-plugins/commit/9195eecbd4ae8b932aaa6e245519663b4115336d))
+* **plugins:** declare Paseo 0.11 compatibility ([#248](https://github.com/g0rdonL/paseo-plugins/issues/248)) ([f983a8b](https://github.com/g0rdonL/paseo-plugins/commit/f983a8bf2025f009c178c15183d6cfac0b2024dd))
+* **plugins:** support Paseo 0.10.1 ([#221](https://github.com/g0rdonL/paseo-plugins/issues/221)) ([9d71ea0](https://github.com/g0rdonL/paseo-plugins/commit/9d71ea09eaa9ed67429813ed3e2de2567c14c825))
+* **release:** publish plugins to npm ([#80](https://github.com/g0rdonL/paseo-plugins/issues/80)) ([3c93048](https://github.com/g0rdonL/paseo-plugins/commit/3c93048cfefda97d8c2bc1631e3428fb64bdad09))
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170)) ([04acfca](https://github.com/g0rdonL/paseo-plugins/commit/04acfcabcf8140edbd3a98681a72cabef7bb74ba))
+* require Paseo 0.11 and drop legacy surface navigation ([#286](https://github.com/g0rdonL/paseo-plugins/issues/286)) ([a46fe9e](https://github.com/g0rdonL/paseo-plugins/commit/a46fe9ee910c2cc485043d53c67dacf49bab402b))
+* **shared-browser:** adopt agent-browser runtime ([#18](https://github.com/g0rdonL/paseo-plugins/issues/18)) ([09623f3](https://github.com/g0rdonL/paseo-plugins/commit/09623f34f2b93943c19f809a865813fa37f467bd))
+
+
+### Bug Fixes
+
+* address Astra review findings ([#207](https://github.com/g0rdonL/paseo-plugins/issues/207)) ([04a2ac5](https://github.com/g0rdonL/paseo-plugins/commit/04a2ac5eeef51c0be3f6308fe39c155e237ceda9))
+* **deps:** support Paseo 0.14.0 ([#429](https://github.com/g0rdonL/paseo-plugins/issues/429)) ([7d79f4c](https://github.com/g0rdonL/paseo-plugins/commit/7d79f4cec882888dd48f0674957d3cd8b97a720b))
+* **deps:** support Paseo 0.14.0-beta.1 ([0f019e0](https://github.com/g0rdonL/paseo-plugins/commit/0f019e054992660f589c14894c4382d51325dc31))
+* **deps:** support Paseo 0.15.0 ([#488](https://github.com/g0rdonL/paseo-plugins/issues/488)) ([7e03060](https://github.com/g0rdonL/paseo-plugins/commit/7e0306043670294badb5b6c2c5b374c9c84da457))
+* **deps:** support Paseo 0.15.0-beta.1 ([#479](https://github.com/g0rdonL/paseo-plugins/issues/479)) ([89f4559](https://github.com/g0rdonL/paseo-plugins/commit/89f45597a6f634c856def38ed6a5a76782083a8b))
+* **deps:** support Paseo 0.16 ([#574](https://github.com/g0rdonL/paseo-plugins/issues/574)) ([e53096c](https://github.com/g0rdonL/paseo-plugins/commit/e53096cea4c11ed81de3757c9f9710fa0042b723))
+* **deps:** support Paseo 0.16.0-beta.2 ([#596](https://github.com/g0rdonL/paseo-plugins/issues/596)) ([052192f](https://github.com/g0rdonL/paseo-plugins/commit/052192f57495f3da8f94887495ff1fda0c0f04ff))
+* **deps:** update dependency agent-browser to v0.39.1 ([#328](https://github.com/g0rdonL/paseo-plugins/issues/328)) ([ff5a9d9](https://github.com/g0rdonL/paseo-plugins/commit/ff5a9d977e40abfbf4762f791f8ede37d1cb5d9f))
+* **deps:** update dependency agent-browser to v0.39.2 ([#404](https://github.com/g0rdonL/paseo-plugins/issues/404)) ([7e75eb7](https://github.com/g0rdonL/paseo-plugins/commit/7e75eb71cd1179a6ecdd2a53cc3f1ffcc54af1d5))
+* **deps:** update dependency agent-browser to v0.39.4 ([#428](https://github.com/g0rdonL/paseo-plugins/issues/428)) ([e9019d8](https://github.com/g0rdonL/paseo-plugins/commit/e9019d829b10e1d591a5c05775ff645cfcc82969))
+* **deps:** update dependency agent-browser to v0.40.0 ([#441](https://github.com/g0rdonL/paseo-plugins/issues/441)) ([70ec979](https://github.com/g0rdonL/paseo-plugins/commit/70ec979f3d07b4fcf4505e2002cc678253d55ef0))
+* **deps:** update dependency agent-browser to v0.41.0 ([#467](https://github.com/g0rdonL/paseo-plugins/issues/467)) ([51fe454](https://github.com/g0rdonL/paseo-plugins/commit/51fe45466f1138ee1be41e8c0f55c8b1c5780627))
+* **deps:** update dependency agent-browser to v0.41.1 ([#499](https://github.com/g0rdonL/paseo-plugins/issues/499)) ([2964abf](https://github.com/g0rdonL/paseo-plugins/commit/2964abfef80355fd410e10ab7779db4da208c883))
+* **deps:** update dependency agent-browser to v0.41.2 ([#542](https://github.com/g0rdonL/paseo-plugins/issues/542)) ([36d8783](https://github.com/g0rdonL/paseo-plugins/commit/36d8783ab5f98706380acd712a04583cc5ede0db))
+* **deps:** update dependency agent-browser to v0.42.0 ([#610](https://github.com/g0rdonL/paseo-plugins/issues/610)) ([de723da](https://github.com/g0rdonL/paseo-plugins/commit/de723da538539cdf126aa9294670176f2dd430ba))
+* **deps:** update dependency agent-browser to v0.43.0 ([#629](https://github.com/g0rdonL/paseo-plugins/issues/629)) ([e407fbd](https://github.com/g0rdonL/paseo-plugins/commit/e407fbd1c3d9fe69583ca1ca6a8fb6e310d11e94))
+* **packaging:** lock npm runtime dependencies with npm-shrinkwrap.json ([#300](https://github.com/g0rdonL/paseo-plugins/issues/300)) ([1b0755c](https://github.com/g0rdonL/paseo-plugins/commit/1b0755c9097681cdc167fb26bd2d1c3cc5e72830))
+* **paseo-omp,paseo-shared-browser:** run npm ci through the shell and drop staged overrides ([#445](https://github.com/g0rdonL/paseo-plugins/issues/445)) ([d727c7a](https://github.com/g0rdonL/paseo-plugins/commit/d727c7a7569104f2bcf9ad53d722788296450c65))
+* **paseo-shared-browser:** bound video smoke polling by time, not RPC count ([#389](https://github.com/g0rdonL/paseo-plugins/issues/389)) ([1e54070](https://github.com/g0rdonL/paseo-plugins/commit/1e5407079e2bb993b0f2661b8b1263995ed505aa))
+* **paseo-shared-browser:** bump runtime protocol so stale supervisors are not reused ([#323](https://github.com/g0rdonL/paseo-plugins/issues/323)) ([581b135](https://github.com/g0rdonL/paseo-plugins/commit/581b135f13d4c58a30bb25136115a57d1b3415c6))
+* **paseo-shared-browser:** commit Android IME text inserted outside a composition ([#584](https://github.com/g0rdonL/paseo-plugins/issues/584)) ([921dc45](https://github.com/g0rdonL/paseo-plugins/commit/921dc454a9060cfdbc04798492a9feb3b0414154))
+* **paseo-shared-browser:** do not hold a bridge lease after disconnect ([#558](https://github.com/g0rdonL/paseo-plugins/issues/558)) ([17c1a3a](https://github.com/g0rdonL/paseo-plugins/commit/17c1a3a22ca718d2c56169592aed135ed4f52132))
+* **paseo-shared-browser:** ignore pre-settlement frames after input ([#264](https://github.com/g0rdonL/paseo-plugins/issues/264)) ([2ca1674](https://github.com/g0rdonL/paseo-plugins/commit/2ca16748862fbe220a1caf62a165240632e42f89))
+* **paseo-shared-browser:** keep Electron running as Node for the MCP launcher ([#130](https://github.com/g0rdonL/paseo-plugins/issues/130)) (@PipeStitch) ([d4b06e0](https://github.com/g0rdonL/paseo-plugins/commit/d4b06e0e78630a3786fb6f071138d0b773fad915))
+* **paseo-shared-browser:** keep frame generations for slow native video encodes ([#458](https://github.com/g0rdonL/paseo-plugins/issues/458)) ([afef687](https://github.com/g0rdonL/paseo-plugins/commit/afef687251797a789f7b3a3ffbe69b18c6d6d812))
+* **paseo-shared-browser:** keep only a verified daemon record after a failed open ([#466](https://github.com/g0rdonL/paseo-plugins/issues/466)) ([6fea779](https://github.com/g0rdonL/paseo-plugins/commit/6fea7798b9ce0897cd8d5a83e7d1de42975b5fe8))
+* **paseo-shared-browser:** keep video smoke consumer visible so frames present ([#387](https://github.com/g0rdonL/paseo-plugins/issues/387)) ([0e88f0e](https://github.com/g0rdonL/paseo-plugins/commit/0e88f0e4860e573e584e0a2d923ad1730e7bd8a0))
+* **paseo-shared-browser:** map pointer input to actual frame dimensions ([#263](https://github.com/g0rdonL/paseo-plugins/issues/263)) ([7e5aa5b](https://github.com/g0rdonL/paseo-plugins/commit/7e5aa5b764edd019e055b41d7bd7eedfe5c7f65e))
+* **paseo-shared-browser:** preserve tab order and confirm closes ([#280](https://github.com/g0rdonL/paseo-plugins/issues/280)) (@RyanEwen) ([ac7ca1c](https://github.com/g0rdonL/paseo-plugins/commit/ac7ca1c918785f00ded17af43cb09657b232ff56))
+* **paseo-shared-browser:** preserve video input freshness and decoding ([#275](https://github.com/g0rdonL/paseo-plugins/issues/275)) (@RyanEwen) ([4a5c74e](https://github.com/g0rdonL/paseo-plugins/commit/4a5c74e943d485a3872fcf8466ef86f79daea1f4))
+* **paseo-shared-browser:** regenerate npm-shrinkwrap for agent-browser 0.38.2 ([#314](https://github.com/g0rdonL/paseo-plugins/issues/314)) ([54f64d8](https://github.com/g0rdonL/paseo-plugins/commit/54f64d8941147ab35f5587192dd72ab5e3be5cb0))
+* **paseo-shared-browser:** resync viewport when fallback frame size disagrees ([#266](https://github.com/g0rdonL/paseo-plugins/issues/266)) ([842155f](https://github.com/g0rdonL/paseo-plugins/commit/842155ff7a3d80d61525a0f0f8afb979a65b79fa))
+* **paseo-shared-browser:** show the composer pill in background workspaces ([#352](https://github.com/g0rdonL/paseo-plugins/issues/352)) ([dc1cfda](https://github.com/g0rdonL/paseo-plugins/commit/dc1cfdaa7af6ffc0a8a5e22c53e869df7f5a37d6))
+* **paseo-shared-browser:** support macOS and Windows runtimes ([#121](https://github.com/g0rdonL/paseo-plugins/issues/121)) ([ef26e5c](https://github.com/g0rdonL/paseo-plugins/commit/ef26e5c6c7021bace43f19f5304df342ec8867e1))
+* **plugins:** accept Paseo 0.13 in the plugin manifest range ([bdb9435](https://github.com/g0rdonL/paseo-plugins/commit/bdb943595515ab7f21a93c66cffeb6844bacdcdb))
+* **plugins:** declare Paseo 0.12 compatibility ([7dbbe2a](https://github.com/g0rdonL/paseo-plugins/commit/7dbbe2a15aa7fb92ae846afa89a174cbed749f8e))
+* **plugins:** prepare for Paseo 0.10 beta ([#186](https://github.com/g0rdonL/paseo-plugins/issues/186)) ([0294fd0](https://github.com/g0rdonL/paseo-plugins/commit/0294fd0fd7ad5101e724d4196a49ac27783b5483))
+* **plugins:** ship OVERVIEW.md in published packages ([640f9a4](https://github.com/g0rdonL/paseo-plugins/commit/640f9a4d7bd6dbad226c4ee1ebaa199abfc62776))
+* resolve shared browser and OMP regressions ([#200](https://github.com/g0rdonL/paseo-plugins/issues/200)) ([fbf59bb](https://github.com/g0rdonL/paseo-plugins/commit/fbf59bb98d0740ba27c4eba7856d3d9079bf4bc4))
+* **shared-browser:** add encoded video toggle, keep held gestures alive, recover expired tab polling ([#614](https://github.com/g0rdonL/paseo-plugins/issues/614)) ([e9c012b](https://github.com/g0rdonL/paseo-plugins/commit/e9c012bfa19fee70c4fb36c83befbc7a5a1f6a23))
+* **shared-browser:** follow owned agent directory ([#164](https://github.com/g0rdonL/paseo-plugins/issues/164)) ([9892e6e](https://github.com/g0rdonL/paseo-plugins/commit/9892e6e28b71cf0b1db6d0f6048bba122eb0587d))
+* **shared-browser:** skip MCP injection for OMP ([#21](https://github.com/g0rdonL/paseo-plugins/issues/21)) ([ee2db08](https://github.com/g0rdonL/paseo-plugins/commit/ee2db08243640600c5592debe72f680446fa26d0))
+* **shared-browser:** support Paseo 0.9 beta ([#86](https://github.com/g0rdonL/paseo-plugins/issues/86)) ([3af209f](https://github.com/g0rdonL/paseo-plugins/commit/3af209f3a8fa347ba7dc05c300061a682d809f88))
+* **shared-browser:** support system Chromium on Linux ARM64 ([#58](https://github.com/g0rdonL/paseo-plugins/issues/58)) ([f9c3dcb](https://github.com/g0rdonL/paseo-plugins/commit/f9c3dcb1031840c7cd0aed4a70f984d9d9bd24c1))
+
 ## [4.1.12](https://github.com/omercnet/paseo-plugins/compare/shared-browser-v4.1.11...shared-browser-v4.1.12) (2026-11-16)
 
 

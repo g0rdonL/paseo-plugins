@@ -1,5 +1,38 @@
 # Changelog
 
+## [3.0.0](https://github.com/g0rdonL/paseo-plugins/compare/tell-agent-v2.0.2...tell-agent-v3.0.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **paseo-dracula,tell-agent:** paseo-dracula and tell-agent no longer support Paseo 0.9 or 0.10.
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170))
+
+### Features
+
+* **paseo-dracula,tell-agent:** add listing icon ([#419](https://github.com/g0rdonL/paseo-plugins/issues/419)) ([2262366](https://github.com/g0rdonL/paseo-plugins/commit/2262366d69b6520752f8988c5fdfe0d0d74d312c))
+* **plugins:** declare Paseo 0.11 compatibility ([#248](https://github.com/g0rdonL/paseo-plugins/issues/248)) ([f983a8b](https://github.com/g0rdonL/paseo-plugins/commit/f983a8bf2025f009c178c15183d6cfac0b2024dd))
+* **plugins:** support Paseo 0.10.1 ([#221](https://github.com/g0rdonL/paseo-plugins/issues/221)) ([9d71ea0](https://github.com/g0rdonL/paseo-plugins/commit/9d71ea09eaa9ed67429813ed3e2de2567c14c825))
+* **release:** publish plugins to npm ([#80](https://github.com/g0rdonL/paseo-plugins/issues/80)) ([3c93048](https://github.com/g0rdonL/paseo-plugins/commit/3c93048cfefda97d8c2bc1631e3428fb64bdad09))
+* require Paseo ^0.9.0 for all plugins ([#170](https://github.com/g0rdonL/paseo-plugins/issues/170)) ([04acfca](https://github.com/g0rdonL/paseo-plugins/commit/04acfcabcf8140edbd3a98681a72cabef7bb74ba))
+* **tell-agent:** add cross-workspace agent messaging ([#11](https://github.com/g0rdonL/paseo-plugins/issues/11)) ([af2bf1f](https://github.com/g0rdonL/paseo-plugins/commit/af2bf1f3230653599af345ea96baeb74e17a0c66))
+* **tell-agent:** steer the source agent's active turn by default ([#259](https://github.com/g0rdonL/paseo-plugins/issues/259)) ([4aaf478](https://github.com/g0rdonL/paseo-plugins/commit/4aaf4781128ae9b829f15bdcb9d12ce01f1a7a64))
+
+
+### Bug Fixes
+
+* **deps:** support Paseo 0.14.0-beta.1 ([0f019e0](https://github.com/g0rdonL/paseo-plugins/commit/0f019e054992660f589c14894c4382d51325dc31))
+* **deps:** support Paseo 0.15.0-beta.1 ([#479](https://github.com/g0rdonL/paseo-plugins/issues/479)) ([89f4559](https://github.com/g0rdonL/paseo-plugins/commit/89f45597a6f634c856def38ed6a5a76782083a8b))
+* **deps:** support Paseo 0.16 ([#574](https://github.com/g0rdonL/paseo-plugins/issues/574)) ([e53096c](https://github.com/g0rdonL/paseo-plugins/commit/e53096cea4c11ed81de3757c9f9710fa0042b723))
+* **plugins:** accept Paseo 0.13 in the plugin manifest range ([bdb9435](https://github.com/g0rdonL/paseo-plugins/commit/bdb943595515ab7f21a93c66cffeb6844bacdcdb))
+* **plugins:** declare Paseo 0.12 compatibility ([7dbbe2a](https://github.com/g0rdonL/paseo-plugins/commit/7dbbe2a15aa7fb92ae846afa89a174cbed749f8e))
+* **plugins:** prepare for Paseo 0.10 beta ([#186](https://github.com/g0rdonL/paseo-plugins/issues/186)) ([0294fd0](https://github.com/g0rdonL/paseo-plugins/commit/0294fd0fd7ad5101e724d4196a49ac27783b5483))
+* **plugins:** ship OVERVIEW.md in published packages ([640f9a4](https://github.com/g0rdonL/paseo-plugins/commit/640f9a4d7bd6dbad226c4ee1ebaa199abfc62776))
+* **tell-agent:** allow messaging idle-released closed agents ([#411](https://github.com/g0rdonL/paseo-plugins/issues/411)) ([373acab](https://github.com/g0rdonL/paseo-plugins/commit/373acab7f773b67badef1a450d7d5c26a3a88468))
+* **tell-agent:** avoid unsupported client type import ([#153](https://github.com/g0rdonL/paseo-plugins/issues/153)) (@Nurshot) ([a8fc7b8](https://github.com/g0rdonL/paseo-plugins/commit/a8fc7b83321351170a086222c9ba5875ca381dee))
+* **tell-agent:** follow the agent directory so new sessions get a pill ([#158](https://github.com/g0rdonL/paseo-plugins/issues/158)) ([@qinkangdeid](https://github.com/qinkangdeid)) ([aadeaac](https://github.com/g0rdonL/paseo-plugins/commit/aadeaac194513009debc921265a7fb133897d51f))
+* **tell-agent:** support Paseo 0.9 beta ([#85](https://github.com/g0rdonL/paseo-plugins/issues/85)) ([f8425f6](https://github.com/g0rdonL/paseo-plugins/commit/f8425f6c4b6271db5514abe3bf3c541c6240ccef))
+
 ## [2.0.2](https://github.com/omercnet/paseo-plugins/compare/tell-agent-v2.0.1...tell-agent-v2.0.2) (2026-11-10)
 
 
