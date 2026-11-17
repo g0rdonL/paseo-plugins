@@ -293,9 +293,10 @@ const enrichmentQuery = `
 const authorsByUrl = new Map<string, string | null>();
 
 async function lookupAuthors(urls: string[]): Promise<void> {
-  const unknown = [...new Set(urls.map((url) => url.toLowerCase()))].filter(
-    (url) => !authorsByUrl.has(url),
-  );
+  // Keys are lowercased, but GitHub resolves the URL as written, so query the original spelling.
+  const unknown = [
+    ...new Map(urls.map((url) => [url.toLowerCase(), url] as const)).values(),
+  ].filter((url) => !authorsByUrl.has(url.toLowerCase()));
   await Promise.allSettled(
     chunks(unknown, ENRICHMENT_BATCH_SIZE).map(async (batch) => {
       const variables = batch.map((_, index) => `$u${index}: URI!`).join(", ");
@@ -316,7 +317,7 @@ async function lookupAuthors(urls: string[]): Promise<void> {
       batch.forEach((url, index) => {
         // GitHub answered for this URL: cache it, including "not a PR the viewer can see". Failed
         // requests are not cached, so they are retried on the next request.
-        authorsByUrl.set(url, payload.data?.[`p${index}`]?.author?.login ?? null);
+        authorsByUrl.set(url.toLowerCase(), payload.data?.[`p${index}`]?.author?.login ?? null);
       });
     }),
   );
