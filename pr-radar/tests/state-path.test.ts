@@ -67,6 +67,11 @@ describe("inbox state location", () => {
   });
 });
 
+// Relative to now (the 30-day window filters by date, so a fixed date would age out), but fixed
+// for the run so repeated refreshes do not read as new activity.
+const CREATED_AT = new Date(Date.now() - 2 * 86_400_000).toISOString();
+const UPDATED_AT = new Date(Date.now() - 86_400_000).toISOString();
+
 function pullRequest(id: string, overrides: Record<string, unknown> = {}) {
   return {
     id,
@@ -74,8 +79,8 @@ function pullRequest(id: string, overrides: Record<string, unknown> = {}) {
     title: "Fix checkout",
     url: `https://github.com/acme/app/pull/${id}`,
     isDraft: false,
-    createdAt: "2026-10-01T00:00:00Z",
-    updatedAt: "2026-10-02T00:00:00Z",
+    createdAt: CREATED_AT,
+    updatedAt: UPDATED_AT,
     author: { login: "dependabot[bot]", type: "Bot" },
     repository: { nameWithOwner: "acme/app" },
     commentsCount: 2,

@@ -125,52 +125,97 @@ async function viewerLogin(): Promise<string> {
     : new Error("GitHub CLI is not authenticated on this Paseo host.");
 }
 
-async function searchPullRequests(
-  filter: "author" | "review-requested" | "assignee" | "mentions",
+type SearchFilter = "author" | "review-requested" | "assignee" | "mentions";
+
+const SEARCH_FIELDS = [
+  "id",
+  "number",
+  "title",
+  "url",
+  "isDraft",
+  "createdAt",
+  "updatedAt",
+  "author",
+  "repository",
+  "commentsCount",
+  "labels",
+].join(",");
+
+/**
+ * Every open PR for one role, newest activity first. One search serves both the window's inbox
+ * (filtered by date locally, see `withinWindow`) and the ownership scope for any age, which used
+ * to cost a second search per role.
+ */
+async function searchOpenPullRequests(
+  filter: SearchFilter,
   viewer: string,
-  since: string,
 ): Promise<SearchRecord[]> {
-  const fields = [
-    "id",
-    "number",
-    "title",
-    "url",
-    "isDraft",
-    "createdAt",
-    "updatedAt",
-    "author",
-    "repository",
-    "commentsCount",
-    "labels",
-  ].join(",");
   const output = await runSearch([
     "search",
     "prs",
     `--${filter}=${viewer}`,
     "--state=open",
     "--archived=false",
-    `--updated=>=${since}`,
-    `--limit=${SEARCH_LIMIT}`,
+    `--limit=${SCOPE_SEARCH_LIMIT}`,
     "--sort=updated",
     "--order=desc",
-    `--json=${fields}`,
+    `--json=${SEARCH_FIELDS}`,
   ]);
   return JSON.parse(output) as SearchRecord[];
 }
 
-async function searchScopeUrls(
-  filter: "author" | "review-requested" | "assignee" | "mentions",
-): Promise<string[]> {
-  const output = await runSearch([
-    "search",
-    "prs",
-    `--${filter}=@me`,
-    "--state=open",
-    "--archived=false",
-    `--limit=${SCOPE_SEARCH_LIMIT}`,
-    "--json=url",
-  ]);
-  return (JSON.parse(output) as Array<{ url: string }>).map(({ url }) => url);
+/** What `--updated=>=since` returned: PRs active on or after `since` (a UTC date), capped. */
+function withinWindow(records: SearchRecord[], since: string): SearchRecord[] {
+  return records
+    .filter((record) => record.updatedAt.slice(0, 10) >= since)
+    .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))
+    .slice(0, SEARCH_LIMIT);
+}
+
+/** The window-independent GitHub reads of one refresh. */
+interface SearchSweep {
+  viewer: string;
+  authored: SearchRecord[];
+  reviewRequested: SearchRecord[];
+  assigned: SearchRecord[];
+  mentioned: SearchRecord[];
+  ownedRepos: SearchRecord[];
+}
+
+/**
+ * Windows only differ by date, so they share one sweep: refreshing the 7- and 30-day windows
+ * together costs four searches, not eight each. Kept shorter than STALE_AFTER_MS so a stale
+ * window always gets fresh data.
+ */
+const SWEEP_TTL_MS = 30_000;
+let sweepCache: { sweep: SearchSweep; at: number } | null = null;
+let sweepInflight: Promise<SearchSweep> | null = null;
+
+function searchSweep(): Promise<SearchSweep> {
+  if (sweepCache && Date.now() - sweepCache.at < SWEEP_TTL_MS) {
+    return Promise.resolve(sweepCache.sweep);
+  }
+  if (sweepInflight) return sweepInflight;
+  const running = (async (): Promise<SearchSweep> => {
+    const viewer = await viewerLogin();
+    const [authored, reviewRequested, assigned, mentioned, ownedRepos] = await Promise.all([
+      searchOpenPullRequests("author", viewer),
+      searchOpenPullRequests("review-requested", viewer),
+      searchOpenPullRequests("assignee", viewer),
+      searchOpenPullRequests("mentions", viewer),
+      searchOwnedReposPullRequests(viewer),
+    ]);
+    return { viewer, authored, reviewRequested, assigned, mentioned, ownedRepos };
+  })()
+    .then((sweep) => {
+      sweepCache = { sweep, at: Date.now() };
+      return sweep;
+    })
+    .finally(() => {
+      sweepInflight = null;
+    });
+  sweepInflight = running;
+  return running;
 }
 
 const REPO_SWEEP_BATCH_SIZE = 10;
@@ -562,29 +607,18 @@ interface Snapshot {
 
 /** The expensive part: ~5 s of gh searches, a per-repo sweep, and GraphQL enrichment. */
 async function fetchSnapshot(windowDays: number): Promise<Snapshot> {
-  const viewer = await viewerLogin();
+  const sweep = await searchSweep();
+  const { viewer, ownedRepos } = sweep;
   const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1_000).toISOString().slice(0, 10);
-  const [
-    authored,
-    reviewRequested,
-    assigned,
-    mentioned,
-    authoredScope,
-    reviewRequestedScope,
-    assignedScope,
-    mentionedScope,
-    ownedRepos,
-  ] = await Promise.all([
-    searchPullRequests("author", viewer, since),
-    searchPullRequests("review-requested", viewer, since),
-    searchPullRequests("assignee", viewer, since),
-    searchPullRequests("mentions", viewer, since),
-    searchScopeUrls("author"),
-    searchScopeUrls("review-requested"),
-    searchScopeUrls("assignee"),
-    searchScopeUrls("mentions"),
-    searchOwnedReposPullRequests(viewer),
-  ]);
+  const authored = withinWindow(sweep.authored, since);
+  const reviewRequested = withinWindow(sweep.reviewRequested, since);
+  const assigned = withinWindow(sweep.assigned, since);
+  const mentioned = withinWindow(sweep.mentioned, since);
+  const urls = (records: SearchRecord[]) => records.map(({ url }) => url);
+  const authoredScope = urls(sweep.authored);
+  const reviewRequestedScope = urls(sweep.reviewRequested);
+  const assignedScope = urls(sweep.assigned);
+  const mentionedScope = urls(sweep.mentioned);
   // Merge priority: author > assignee > reviewer > mention > owner (most "owning" role wins on overlap).
   const records = new Map<string, { record: SearchRecord; role: GitHubInboxItem["role"] }>();
   for (const record of ownedRepos) records.set(record.id, { record, role: "owner" });
@@ -880,6 +914,8 @@ export async function resetViewerScopeCache({ keepDisk = false } = {}): Promise<
   await stateQueue;
   await snapshotWrites;
   if (!keepDisk) await rm(snapshotPath(), { force: true });
+  await sweepInflight?.catch(() => undefined);
+  sweepCache = null;
   diskChecked.clear();
   snapshots.clear();
   inflight.clear();

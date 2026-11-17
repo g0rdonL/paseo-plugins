@@ -248,8 +248,18 @@ describe("background cache", () => {
       release();
     }
     await pending;
-    expect(gh.calls.filter((args) => args[0] === "search").length).toBe(8);
+    expect(gh.calls.filter((args) => args[0] === "search").length).toBe(4);
     expect(gh.peakSearches).toBeLessThanOrEqual(2);
+  });
+
+  test("windows refreshed together share one set of searches", async () => {
+    await Promise.all([
+      resolveViewerScope({ urls: [], windowDays: 7 }),
+      resolveViewerScope({ urls: [], windowDays: 30 }),
+      resolveViewerScope({ urls: [], windowDays: 90 }),
+    ]);
+    expect(gh.calls.filter((args) => args[0] === "search").length).toBe(4);
+    expect(loginCalls()).toBe(1);
   });
 
   test("after a failed first sweep, reads back off instead of hammering GitHub", async () => {
